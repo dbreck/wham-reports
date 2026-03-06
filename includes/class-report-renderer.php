@@ -23,7 +23,7 @@ class Report_Renderer {
         $is_admin = current_user_can( 'manage_options' );
 
         // Determine which client(s) this user can see.
-        $client_id = get_user_meta( $user->ID, '_wham_client_id', true );
+        $client_id = get_user_meta( $user->ID, '_wham_monday_client_id', true );
 
         if ( ! $is_admin && empty( $client_id ) ) {
             return '<div class="wham-dash-notice">Your account is not linked to a client. Please contact your account manager.</div>';

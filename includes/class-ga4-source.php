@@ -231,6 +231,80 @@ class GA4_Source {
         return $this->access_token;
     }
 
+    /**
+     * List all GA4 properties accessible to the service account.
+     * Uses the Analytics Admin API accountSummaries endpoint.
+     *
+     * @return array  Keyed by property ID (numeric) => [ 'name' => display name, 'url' => matched website URL ].
+     */
+    public function list_properties(): array {
+        $cached = get_transient( 'wham_ga4_properties_list' );
+        if ( is_array( $cached ) ) {
+            return $cached;
+        }
+
+        $token = $this->get_access_token();
+        if ( ! $token ) {
+            return [];
+        }
+
+        // 1. Get all properties via accountSummaries.
+        $response = wp_remote_get( 'https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200', [
+            'headers' => [ 'Authorization' => 'Bearer ' . $token ],
+            'timeout' => 15,
+        ]);
+
+        if ( is_wp_error( $response ) ) {
+            return [];
+        }
+
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        if ( empty( $data['accountSummaries'] ) ) {
+            return [];
+        }
+
+        $properties = [];
+        foreach ( $data['accountSummaries'] as $account ) {
+            foreach ( $account['propertySummaries'] ?? [] as $prop ) {
+                $id = str_replace( 'properties/', '', $prop['property'] ?? '' );
+                if ( $id ) {
+                    $properties[ $id ] = [
+                        'name' => $prop['displayName'] ?? '',
+                        'url'  => '',
+                    ];
+                }
+            }
+        }
+
+        // 2. For each property, fetch data streams to get the website URL.
+        foreach ( $properties as $id => &$info ) {
+            $streams_url = 'https://analyticsadmin.googleapis.com/v1beta/properties/' . $id . '/dataStreams';
+            $streams_resp = wp_remote_get( $streams_url, [
+                'headers' => [ 'Authorization' => 'Bearer ' . $token ],
+                'timeout' => 10,
+            ]);
+
+            if ( is_wp_error( $streams_resp ) ) {
+                continue;
+            }
+
+            $streams_data = json_decode( wp_remote_retrieve_body( $streams_resp ), true );
+            foreach ( $streams_data['dataStreams'] ?? [] as $stream ) {
+                if ( ( $stream['type'] ?? '' ) === 'WEB_DATA_STREAM' ) {
+                    $info['url'] = $stream['webStreamData']['defaultUri'] ?? '';
+                    break;
+                }
+            }
+
+            usleep( 100000 ); // 100ms pause to avoid rate limits.
+        }
+        unset( $info );
+
+        set_transient( 'wham_ga4_properties_list', $properties, 3600 );
+
+        return $properties;
+    }
+
     private function empty_result( string $error = '' ): array {
         return [
             'source' => 'error',

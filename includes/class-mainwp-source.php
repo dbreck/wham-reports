@@ -151,6 +151,38 @@ class MainWP_Source {
     }
 
     /**
+     * List all MainWP child sites with their IDs, names, and URLs.
+     *
+     * @return array  Keyed by site ID => [ 'name' => ..., 'url' => ..., 'domain' => ... ].
+     */
+    public function list_sites(): array {
+        if ( ! class_exists( '\MainWP\Dashboard\MainWP_DB' ) ) {
+            return [];
+        }
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'mainwp_wp';
+        $sites = $wpdb->get_results( "SELECT id, name, url FROM {$table} ORDER BY name ASC", ARRAY_A );
+
+        if ( ! $sites ) {
+            return [];
+        }
+
+        $result = [];
+        foreach ( $sites as $site ) {
+            $domain = strtolower( parse_url( $site['url'] ?? '', PHP_URL_HOST ) ?: '' );
+            $domain = preg_replace( '/^www\./', '', $domain );
+            $result[ $site['id'] ] = [
+                'name'   => $site['name'] ?? '',
+                'url'    => $site['url'] ?? '',
+                'domain' => $domain,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
      * Return a safe empty structure when data can't be collected.
      */
     private function empty_result( string $error = '' ): array {
