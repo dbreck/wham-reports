@@ -65,6 +65,48 @@ class GA4_Source {
             'pageviews'           => (int) ( $core_row[5]['value'] ?? 0 ),
         ];
 
+        // Previous period for comparison.
+        $prev_end_date   = date( 'Y-m-d', strtotime( $start_date . ' -1 day' ) );
+        $prev_start_date = date( 'Y-m-d', strtotime( $prev_end_date . ' -29 days' ) );
+
+        $prev_core = $this->run_report( $ga4_property_id, $token, $prev_start_date, $prev_end_date, [], [
+            'sessions', 'totalUsers', 'screenPageViews', 'bounceRate',
+        ]);
+
+        if ( ! isset( $prev_core['error'] ) ) {
+            $prev_row = $prev_core['rows'][0]['metricValues'] ?? [];
+            $result['previous_sessions']    = (int) ( $prev_row[0]['value'] ?? 0 );
+            $result['previous_users']       = (int) ( $prev_row[1]['value'] ?? 0 );
+            $result['previous_pageviews']   = (int) ( $prev_row[2]['value'] ?? 0 );
+            $result['previous_bounce_rate'] = round( (float) ( $prev_row[3]['value'] ?? 0 ) * 100, 1 );
+        }
+
+        // Daily time series for charts.
+        $daily = $this->run_report( $ga4_property_id, $token, $start_date, $end_date,
+            [ 'date' ], [ 'sessions', 'totalUsers' ], 31
+        );
+
+        if ( ! isset( $daily['error'] ) && ! empty( $daily['rows'] ) ) {
+            $result['daily_sessions'] = [];
+            $result['daily_users']    = [];
+            $result['daily_labels']   = [];
+
+            // Sort by date (GA4 might not return in order).
+            $daily_rows = $daily['rows'];
+            usort( $daily_rows, function( $a, $b ) {
+                return ( $a['dimensionValues'][0]['value'] ?? '' ) <=> ( $b['dimensionValues'][0]['value'] ?? '' );
+            });
+
+            foreach ( $daily_rows as $row ) {
+                $date_val = $row['dimensionValues'][0]['value'] ?? '';
+                // GA4 returns dates as YYYYMMDD.
+                $result['daily_labels'][]   = date( 'M j', strtotime( $date_val ) );
+                $metrics_vals               = $row['metricValues'] ?? [];
+                $result['daily_sessions'][] = (int) ( $metrics_vals[0]['value'] ?? 0 );
+                $result['daily_users'][]    = (int) ( $metrics_vals[1]['value'] ?? 0 );
+            }
+        }
+
         // 2. Traffic by source/medium (Professional+).
         $traffic = $this->run_report( $ga4_property_id, $token, $start_date, $end_date,
             [ 'sessionDefaultChannelGroup' ],
@@ -313,5 +355,11 @@ class GA4_Source {
             'users' => 0,
             'pageviews' => 0,
         ];
+    }
+}
+
+if ( ! function_exists( __NAMESPACE__ . '\\base64url_encode' ) ) {
+    function base64url_encode( string $data ): string {
+        return rtrim( strtr( base64_encode( $data ), '+/', '-_' ), '=' );
     }
 }

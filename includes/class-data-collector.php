@@ -8,6 +8,8 @@ require_once WHAM_REPORTS_PATH . 'includes/class-gsc-source.php';
 require_once WHAM_REPORTS_PATH . 'includes/class-ga4-source.php';
 require_once WHAM_REPORTS_PATH . 'includes/class-monday-source.php';
 require_once WHAM_REPORTS_PATH . 'includes/class-pdf-generator.php';
+require_once WHAM_REPORTS_PATH . 'includes/class-chart-generator.php';
+require_once WHAM_REPORTS_PATH . 'includes/class-insights-engine.php';
 
 /**
  * Data Collector — Orchestrates data collection from all sources
@@ -32,10 +34,13 @@ class Data_Collector {
     /**
      * Generate reports for all active clients.
      */
-    public function generate_all_reports(): array {
+    public function generate_all_reports( string $period = '' ): array {
         $client_map = \WHAM_Reports::get_client_map();
         $results    = [];
-        $period     = date( 'Y-m' );
+
+        if ( empty( $period ) ) {
+            $period = date( 'Y-m' );
+        }
 
         foreach ( $client_map as $monday_id => $config ) {
             $result = $this->generate_single_report( $monday_id, $period );
@@ -138,14 +143,72 @@ class Data_Collector {
         $report_data['dev_hours'] = $this->monday->collect( $monday_id, $period );
         $this->log( '  → Monday.com dev hours collected.' );
 
+        // Generate insights from collected data.
+        $report_data['insights'] = Insights_Engine::generate( $report_data );
+        $this->log( '  → Insights generated: ' . count( $report_data['insights']['wins'] ?? [] ) . ' wins, ' . count( $report_data['insights']['watch_items'] ?? [] ) . ' watch items.' );
+
+        // Generate chart images.
+        $report_data['charts'] = [];
+
+        if ( in_array( $tier, [ 'professional', 'premium' ], true ) ) {
+            // GSC trend chart.
+            if ( ! empty( $report_data['search']['daily_labels'] ) ) {
+                $datasets = [
+                    [ 'label' => 'Clicks', 'data' => $report_data['search']['daily_clicks'] ?? [], 'borderColor' => '#3b82f6' ],
+                    [ 'label' => 'Impressions', 'data' => $report_data['search']['daily_impressions'] ?? [], 'borderColor' => '#16a34a' ],
+                ];
+                $report_data['charts']['gsc_trend'] = Chart_Generator::line_chart(
+                    $report_data['search']['daily_labels'],
+                    $datasets
+                );
+                $this->log( '  → GSC trend chart generated.' );
+            }
+
+            // GA4 traffic sources bar chart.
+            if ( ! empty( $report_data['analytics']['traffic_sources'] ) ) {
+                $labels = array_column( $report_data['analytics']['traffic_sources'], 'sessionDefaultChannelGroup' );
+                $values = array_map( 'intval', array_column( $report_data['analytics']['traffic_sources'], 'metric_0' ) );
+                $report_data['charts']['ga4_sources'] = Chart_Generator::bar_chart( $labels, $values );
+                $this->log( '  → GA4 sources chart generated.' );
+            }
+
+            // GA4 sessions trend.
+            if ( ! empty( $report_data['analytics']['daily_labels'] ) ) {
+                $datasets = [
+                    [ 'label' => 'Sessions', 'data' => $report_data['analytics']['daily_sessions'] ?? [], 'borderColor' => '#3b82f6' ],
+                    [ 'label' => 'Users', 'data' => $report_data['analytics']['daily_users'] ?? [], 'borderColor' => '#16a34a' ],
+                ];
+                $report_data['charts']['ga4_trend'] = Chart_Generator::line_chart(
+                    $report_data['analytics']['daily_labels'],
+                    $datasets
+                );
+                $this->log( '  → GA4 trend chart generated.' );
+            }
+        }
+
+        // Dev hours doughnut (all tiers).
+        $hrs_used = (float) ( $report_data['dev_hours']['hours_used'] ?? 0 );
+        $hrs_rem  = (float) ( $report_data['dev_hours']['hours_remaining'] ?? 0 );
+        if ( $hrs_used > 0 || $hrs_rem > 0 ) {
+            $report_data['charts']['dev_hours'] = Chart_Generator::doughnut_chart(
+                [ 'Used', 'Remaining' ],
+                [ $hrs_used, $hrs_rem ],
+                [ 'colors' => [ '#3b82f6', '#e2e8f0' ] ]
+            );
+            $this->log( '  → Dev hours chart generated.' );
+        }
+
         // ── Create Report Post ────────────────────────────────────────
 
         $title = sprintf( '%s — %s', $client_name, date( 'F Y', strtotime( $period . '-01' ) ) );
 
+        $require_review = get_option( 'wham_require_review', '0' );
+        $post_status = $require_review ? 'draft' : 'publish';
+
         $post_id = wp_insert_post([
             'post_type'   => 'wham_report',
             'post_title'  => $title,
-            'post_status' => 'publish',
+            'post_status' => $post_status,
         ]);
 
         if ( is_wp_error( $post_id ) ) {
@@ -185,6 +248,44 @@ class Data_Collector {
             'report_id' => $post_id,
             'pdf_url'   => $pdf_url ?? null,
         ];
+    }
+
+    /**
+     * Generate reports for all clients and optionally send emails.
+     *
+     * @param string $period       Report period (YYYY-MM), defaults to current month.
+     * @param array  $excluded_ids Monday IDs to skip.
+     * @param bool   $send_email   Whether to email each report after generation.
+     * @return array Results keyed by monday_id.
+     */
+    public function generate_and_send( string $period = '', array $excluded_ids = [], bool $send_email = false ): array {
+        $client_map = \WHAM_Reports::get_client_map();
+        $results    = [];
+
+        if ( empty( $period ) ) {
+            $period = date( 'Y-m' );
+        }
+
+        foreach ( $client_map as $monday_id => $config ) {
+            if ( in_array( $monday_id, $excluded_ids, true ) ) {
+                $results[ $monday_id ] = [ 'status' => 'excluded' ];
+                $this->log( "Skipping excluded client: {$monday_id}" );
+                continue;
+            }
+
+            $result = $this->generate_single_report( $monday_id, $period );
+            $results[ $monday_id ] = $result;
+
+            if ( $send_email && 'success' === ( $result['status'] ?? '' ) && ! empty( $result['report_id'] ) ) {
+                $this->send_report_email( (int) $result['report_id'] );
+            }
+
+            usleep( 500000 ); // 0.5s pause for rate limits.
+        }
+
+        $this->log( sprintf( 'generate_and_send: %d reports processed for period %s.', count( $results ), $period ) );
+
+        return $results;
     }
 
     /**
@@ -264,6 +365,59 @@ class Data_Collector {
         }
 
         return null;
+    }
+
+    /**
+     * Finalize a draft report: apply overrides, publish, and optionally send email.
+     *
+     * @param int  $post_id    The wham_report post ID.
+     * @param bool $send_email Whether to email the report after publishing.
+     * @return array Result with status and report_id or error message.
+     */
+    public function finalize_report( int $post_id, bool $send_email = false ): array {
+        $post = get_post( $post_id );
+        if ( ! $post || $post->post_type !== 'wham_report' ) {
+            return [ 'status' => 'error', 'message' => 'Report not found.' ];
+        }
+
+        // Apply overrides if any.
+        $overrides_json = get_post_meta( $post_id, '_wham_report_overrides', true );
+        if ( $overrides_json ) {
+            $report_data = json_decode( get_post_meta( $post_id, '_wham_report_data', true ), true );
+            $overrides   = json_decode( $overrides_json, true );
+
+            if ( is_array( $overrides ) && is_array( $report_data ) ) {
+                if ( ! empty( $overrides['executive_summary'] ) ) {
+                    $report_data['insights']['executive_summary'] = $overrides['executive_summary'];
+                }
+                if ( ! empty( $overrides['wins'] ) ) {
+                    $report_data['insights']['wins'] = $overrides['wins'];
+                }
+                if ( ! empty( $overrides['watch_items'] ) ) {
+                    $report_data['insights']['watch_items'] = $overrides['watch_items'];
+                }
+                if ( ! empty( $overrides['recommendations'] ) ) {
+                    $report_data['insights']['recommendations'] = $overrides['recommendations'];
+                }
+
+                update_post_meta( $post_id, '_wham_report_data', wp_json_encode( $report_data ) );
+
+                // Re-generate PDF with updated data.
+                $pdf_url = $this->pdf->generate( $report_data, $post_id );
+                if ( $pdf_url ) {
+                    update_post_meta( $post_id, '_wham_pdf_url', $pdf_url );
+                }
+            }
+        }
+
+        wp_update_post( [ 'ID' => $post_id, 'post_status' => 'publish' ] );
+        $this->log( "Report {$post_id} finalized (published)." );
+
+        if ( $send_email ) {
+            $this->send_report_email( $post_id );
+        }
+
+        return [ 'status' => 'success', 'report_id' => $post_id ];
     }
 
     /**

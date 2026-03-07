@@ -52,9 +52,7 @@ $all_users = get_users([
     'order'   => 'ASC',
     'fields'  => [ 'ID', 'display_name', 'user_email', 'user_login' ],
 ]);
-$picker_users = array_filter( $all_users, function( $u ) {
-    return ! user_can( $u->ID, 'manage_options' );
-});
+$picker_users = $all_users;
 
 $user_access_map = [];
 foreach ( $picker_users as $u ) {
@@ -156,7 +154,7 @@ $picker_users_json = wp_json_encode( array_values( array_map( function( $u ) {
                                         </label>
                                         <?php endforeach; ?>
                                         <?php if ( empty( $picker_users ) ) : ?>
-                                            <p class="wham-users-empty">No non-admin users found. <a href="<?php echo admin_url( 'user-new.php' ); ?>">Create one</a>.</p>
+                                            <p class="wham-users-empty">No users found. <a href="<?php echo admin_url( 'user-new.php' ); ?>">Create one</a>.</p>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -319,7 +317,6 @@ $picker_users_json = wp_json_encode( array_values( array_map( function( $u ) {
         border: 1px solid #c3c4c7;
         border-radius: 6px;
         margin-bottom: 24px;
-        overflow: hidden;
     }
     .wham-mapping-card-header {
         display: flex;
@@ -352,7 +349,7 @@ $picker_users_json = wp_json_encode( array_values( array_map( function( $u ) {
     }
 
     /* ── Mapping table ────────────────────────────────────────────── */
-    .wham-mapping-table-wrap { overflow-x: auto; }
+    .wham-mapping-table-wrap { overflow-x: auto; overflow-y: visible; }
 
     .wham-mapping-table {
         width: 100%;

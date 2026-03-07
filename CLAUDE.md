@@ -83,3 +83,26 @@ Monthly report generation scheduled via `wham_generate_reports` cron event (1st 
 
 Items (clients): `color_mkqxgshx` (Plan Type), `numeric_mkvgfs2a` (Monthly Included Hours), `link_mkqx3m9` (Website)
 Subitems (monthly entries): `duration_mksn85dy` (Time Tracking), `status` (Report Status), `date0` (Date Sent)
+
+## Client Mapping Page (templates/admin/mapping.php)
+
+The mapping page is the most complex admin template. Key architecture:
+- **Dynamic rows** — no hardcoded empty rows; JS `createRow()` builds rows with all fields + user picker
+- **Reference table** — 11 Monday.com clients with auto-matched MainWP Site ID (DB lookup) and GA4 Property ID (Admin API)
+- **User picker** — dropdown panel per row with checkboxes, search filter, live count; user data passed to JS as `pickerUsers` JSON for dynamic rows
+- **User meta sync** — on save, clears all `_wham_monday_client_id` meta then re-sets from form checkboxes
+- **+ buttons** — copy reference data into a new mapping row, detect duplicates (flash + scroll to existing)
+
+## Standard Operating Procedures
+
+- **Load relevant skills** before starting work. At minimum, load `wordpress-plugin-dev` and `plugin-settings` skills for any plugin development tasks. Use `/skill-lookup` if the task might benefit from additional specialized skills.
+- **Use agent teams** for non-trivial implementation tasks (2+ files or distinct parallel workstreams) per global SOPs.
+- **Deploy after changes** — the user can only see changes once the plugin is updated on Flywheel. After making changes, transfer modified files via SSH (see "Deployment Shortcut" below). Always confirm with the user before deploying.
+
+## Deployment Shortcut (Single File)
+
+For single-file updates, skip tar and pipe directly:
+```bash
+ssh -T -i ~/.ssh/flywheel_clearph team+clearph+wham@ssh.getflywheel.com \
+  "cat > /www/wp-content/plugins/wham-reports/path/to/file.php" < local/path/to/file.php
+```

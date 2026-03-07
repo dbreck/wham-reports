@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WHAM Reports
  * Description: Automated monthly reporting for WHAM (Web Hosting And Maintenance) clients. Collects data from MainWP, Google Search Console, GA4, and Monday.com to generate PDF reports and a client dashboard.
- * Version: 1.0.0
+ * Version: 2.0.0
  * Author: Clear ph Design
  * Text Domain: wham-reports
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WHAM_REPORTS_VERSION', '1.0.0' );
+define( 'WHAM_REPORTS_VERSION', '2.0.0' );
 define( 'WHAM_REPORTS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WHAM_REPORTS_URL', plugin_dir_url( __FILE__ ) );
 define( 'WHAM_REPORTS_MONDAY_BOARD_ID', '9141194124' );
@@ -60,6 +60,9 @@ final class WHAM_Reports {
         add_action( 'admin_init', [ $this, 'register_settings' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'admin_assets' ] );
 
+        // Plugin row meta — "Check for updates" link.
+        add_filter( 'plugin_row_meta', [ $this, 'plugin_row_meta' ], 10, 2 );
+
         // Dashboard shortcode.
         add_shortcode( 'wham_dashboard', [ $this, 'render_dashboard_shortcode' ] );
 
@@ -67,11 +70,19 @@ final class WHAM_Reports {
         add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
 
         // Cron.
+        add_filter( 'cron_schedules', [ $this, 'add_monthly_schedule' ] );
         add_action( 'wham_generate_reports', [ $this, 'run_report_generation' ] );
+
+        // Reschedule cron when auto-send settings change.
+        foreach ( [ 'update_option_wham_autosend_day', 'update_option_wham_autosend_hour', 'update_option_wham_autosend_enabled',
+                     'add_option_wham_autosend_day', 'add_option_wham_autosend_hour', 'add_option_wham_autosend_enabled' ] as $hook ) {
+            add_action( $hook, [ $this, 'reschedule_cron' ], 10, 0 );
+        }
 
         // Manual trigger via admin.
         add_action( 'admin_post_wham_generate_reports', [ $this, 'handle_manual_generate' ] );
         add_action( 'admin_post_wham_generate_single', [ $this, 'handle_single_generate' ] );
+        add_action( 'admin_post_wham_approve_report', [ $this, 'handle_approve_report' ] );
     }
 
     /* ------------------------------------------------------------------
@@ -83,9 +94,11 @@ final class WHAM_Reports {
         $this->register_client_role();
         flush_rewrite_rules();
 
-        // Schedule monthly cron on the 1st at 6:00 AM.
-        if ( ! wp_next_scheduled( 'wham_generate_reports' ) ) {
-            $next = strtotime( 'first day of next month 06:00:00' );
+        // Schedule monthly cron if auto-send is enabled.
+        if ( ! wp_next_scheduled( 'wham_generate_reports' ) && get_option( 'wham_autosend_enabled', '0' ) ) {
+            $day  = (int) get_option( 'wham_autosend_day', 1 );
+            $hour = (int) get_option( 'wham_autosend_hour', 6 );
+            $next = $this->calculate_next_run( $day, $hour );
             wp_schedule_event( $next, 'monthly', 'wham_generate_reports' );
         }
     }
@@ -93,6 +106,57 @@ final class WHAM_Reports {
     public function deactivate(): void {
         wp_clear_scheduled_hook( 'wham_generate_reports' );
         flush_rewrite_rules();
+    }
+
+    /**
+     * Register the monthly cron schedule (WordPress doesn't include one).
+     */
+    public function add_monthly_schedule( array $schedules ): array {
+        $schedules['monthly'] = [
+            'interval' => 30 * DAY_IN_SECONDS,
+            'display'  => 'Once Monthly',
+        ];
+        return $schedules;
+    }
+
+    /**
+     * Reschedule the cron event based on current auto-send settings.
+     * Uses a static flag to avoid running multiple times per request.
+     */
+    public function reschedule_cron(): void {
+        static $done = false;
+        if ( $done ) {
+            return;
+        }
+        $done = true;
+
+        wp_clear_scheduled_hook( 'wham_generate_reports' );
+
+        $enabled = get_option( 'wham_autosend_enabled', '0' );
+        if ( ! $enabled ) {
+            return;
+        }
+
+        $day  = (int) get_option( 'wham_autosend_day', 1 );
+        $hour = (int) get_option( 'wham_autosend_hour', 6 );
+        $next = $this->calculate_next_run( $day, $hour );
+
+        wp_schedule_event( $next, 'monthly', 'wham_generate_reports' );
+    }
+
+    /**
+     * Calculate the next cron run timestamp for a given day and hour.
+     */
+    private function calculate_next_run( int $day, int $hour ): int {
+        $now       = current_time( 'timestamp' );
+        $this_month = mktime( $hour, 0, 0, (int) date( 'n', $now ), $day, (int) date( 'Y', $now ) );
+
+        if ( $this_month > $now ) {
+            return $this_month;
+        }
+
+        // Already passed this month — schedule for next month.
+        return mktime( $hour, 0, 0, (int) date( 'n', $now ) + 1, $day, (int) date( 'Y', $now ) );
     }
 
     /* ------------------------------------------------------------------
@@ -172,6 +236,24 @@ final class WHAM_Reports {
             'wham-reports-mapping',
             [ $this, 'render_mapping_page' ]
         );
+
+        add_submenu_page(
+            'wham-reports',
+            'Schedule',
+            'Schedule',
+            'manage_options',
+            'wham-reports-schedule',
+            [ $this, 'render_schedule_page' ]
+        );
+
+        add_submenu_page(
+            'wham-reports',
+            'Review Drafts',
+            'Review Drafts',
+            'manage_options',
+            'wham-reports-drafts',
+            [ $this, 'render_drafts_page' ]
+        );
     }
 
     /* ------------------------------------------------------------------
@@ -187,13 +269,47 @@ final class WHAM_Reports {
         register_setting( 'wham_reports_settings', 'wham_sender_email' );
         register_setting( 'wham_reports_settings', 'wham_sender_name' );
 
-        // Client mapping (JSON map of monday_id → mainwp_site_id, gsc_property, ga4_property_id).
-        register_setting( 'wham_reports_settings', 'wham_client_map' );
+        // Tier configuration.
+        register_setting( 'wham_reports_settings', 'wham_tier_config', [
+            'sanitize_callback' => [ $this, 'sanitize_tier_config' ],
+        ] );
+
+        // PDF settings.
+        register_setting( 'wham_reports_settings', 'wham_pdf_template' );
+        register_setting( 'wham_reports_settings', 'wham_company_name' );
+        register_setting( 'wham_reports_settings', 'wham_require_review' );
+
+        // Auto-send schedule (own settings group — saved from Schedule page).
+        register_setting( 'wham_schedule_settings', 'wham_autosend_enabled', [
+            'sanitize_callback' => function ( $val ) { return $val ? '1' : '0'; },
+        ] );
+        register_setting( 'wham_schedule_settings', 'wham_autosend_day', [
+            'sanitize_callback' => function ( $val ) { return max( 1, min( 28, absint( $val ) ) ); },
+        ] );
+        register_setting( 'wham_schedule_settings', 'wham_autosend_hour', [
+            'sanitize_callback' => function ( $val ) { return max( 0, min( 23, absint( $val ) ) ); },
+        ] );
+        register_setting( 'wham_schedule_settings', 'wham_autosend_email', [
+            'sanitize_callback' => function ( $val ) { return $val ? '1' : '0'; },
+        ] );
+        register_setting( 'wham_schedule_settings', 'wham_autosend_excludes', [
+            'sanitize_callback' => [ $this, 'sanitize_autosend_excludes' ],
+        ] );
     }
 
     /* ------------------------------------------------------------------
      * Admin Assets
      * ----------------------------------------------------------------*/
+
+    /**
+     * Add "Check for updates" link to the plugin row on the Plugins page.
+     */
+    public function plugin_row_meta( array $meta, string $plugin_file ): array {
+        if ( plugin_basename( __FILE__ ) === $plugin_file ) {
+            $meta[] = '<a href="' . esc_url( self_admin_url( 'update-core.php?force-check=1' ) ) . '">Check for updates</a>';
+        }
+        return $meta;
+    }
 
     public function admin_assets( string $hook ): void {
         if ( strpos( $hook, 'wham-reports' ) === false ) {
@@ -218,25 +334,23 @@ final class WHAM_Reports {
         require_once WHAM_REPORTS_PATH . 'templates/admin/mapping.php';
     }
 
+    public function render_schedule_page(): void {
+        require_once WHAM_REPORTS_PATH . 'templates/admin/schedule.php';
+    }
+
+    public function render_drafts_page(): void {
+        require_once WHAM_REPORTS_PATH . 'templates/admin/report-draft.php';
+    }
+
     /* ------------------------------------------------------------------
      * Dashboard Shortcode: [wham_dashboard]
      * ----------------------------------------------------------------*/
 
     public function render_dashboard_shortcode( $atts ): string {
-        if ( ! is_user_logged_in() ) {
-            return '<p>Please <a href="' . wp_login_url( get_permalink() ) . '">log in</a> to view your reports.</p>';
-        }
+        require_once WHAM_REPORTS_PATH . 'includes/class-report-renderer.php';
 
-        $user       = wp_get_current_user();
-        $client_id  = get_user_meta( $user->ID, '_wham_monday_client_id', true );
-
-        if ( empty( $client_id ) && ! current_user_can( 'manage_options' ) ) {
-            return '<p>Your account is not linked to a WHAM client. Please contact support.</p>';
-        }
-
-        ob_start();
-        include WHAM_REPORTS_PATH . 'templates/dashboard/client-dashboard.php';
-        return ob_get_clean();
+        $renderer = new \WHAM_Reports\Report_Renderer();
+        return $renderer->render_dashboard();
     }
 
     /* ------------------------------------------------------------------
@@ -332,11 +446,26 @@ final class WHAM_Reports {
      * Report Generation
      * ----------------------------------------------------------------*/
 
-    public function run_report_generation(): void {
+    public function run_report_generation( string $period = '', string $client_id = '' ): void {
+        // When called from cron (no arguments), respect auto-send settings.
+        $is_cron = empty( $period ) && empty( $client_id ) && defined( 'DOING_CRON' ) && DOING_CRON;
+
+        if ( $is_cron && ! get_option( 'wham_autosend_enabled', '0' ) ) {
+            return;
+        }
+
         require_once WHAM_REPORTS_PATH . 'includes/class-data-collector.php';
 
         $collector = new \WHAM_Reports\Data_Collector();
-        $collector->generate_all_reports();
+
+        if ( ! empty( $client_id ) ) {
+            $collector->generate_single_report( $client_id, $period );
+        } else {
+            $excluded  = $is_cron ? json_decode( get_option( 'wham_autosend_excludes', '[]' ), true ) ?: [] : [];
+            $auto_email = $is_cron && get_option( 'wham_autosend_email', '1' );
+
+            $collector->generate_and_send( $period, $excluded, $auto_email );
+        }
     }
 
     public function handle_manual_generate(): void {
@@ -345,9 +474,13 @@ final class WHAM_Reports {
         }
         check_admin_referer( 'wham_generate_reports' );
 
-        $this->run_report_generation();
+        $period    = isset( $_POST['wham_report_period'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_report_period'] ) ) : '';
+        $client_id = isset( $_POST['wham_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_client_id'] ) ) : '';
 
-        wp_redirect( admin_url( 'admin.php?page=wham-reports&generated=1' ) );
+        $this->run_report_generation( $period, $client_id );
+
+        $redirect = admin_url( 'admin.php?page=wham-reports&generated=' . ( $client_id ? 'single' : '1' ) );
+        wp_redirect( $redirect );
         exit;
     }
 
@@ -357,7 +490,9 @@ final class WHAM_Reports {
         }
         check_admin_referer( 'wham_generate_single' );
 
-        $client_id = sanitize_text_field( $_GET['client_id'] ?? '' );
+        $client_id = isset( $_GET['client_id'] ) ? sanitize_text_field( wp_unslash( $_GET['client_id'] ) ) : '';
+        $period    = isset( $_GET['period'] ) ? sanitize_text_field( wp_unslash( $_GET['period'] ) ) : '';
+
         if ( empty( $client_id ) ) {
             wp_die( 'Missing client ID.' );
         }
@@ -365,9 +500,52 @@ final class WHAM_Reports {
         require_once WHAM_REPORTS_PATH . 'includes/class-data-collector.php';
 
         $collector = new \WHAM_Reports\Data_Collector();
-        $collector->generate_single_report( $client_id );
+        $collector->generate_single_report( $client_id, $period );
 
         wp_redirect( admin_url( 'admin.php?page=wham-reports&generated=single' ) );
+        exit;
+    }
+
+    public function handle_approve_report(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( 'Unauthorized' );
+        }
+        check_admin_referer( 'wham_approve_report' );
+
+        $post_id    = absint( $_POST['report_id'] ?? 0 );
+        $send_email = ! empty( $_POST['send_email'] ) && $_POST['send_email'] === '1';
+
+        if ( ! $post_id ) {
+            wp_die( 'Missing report ID.' );
+        }
+
+        // Build overrides from form.
+        $overrides = [
+            'executive_summary' => sanitize_textarea_field( wp_unslash( $_POST['executive_summary'] ?? '' ) ),
+            'wins'              => array_values( array_filter( array_map( 'sanitize_text_field', wp_unslash( $_POST['wins'] ?? [] ) ) ) ),
+            'watch_items'       => array_values( array_filter( array_map( 'sanitize_text_field', wp_unslash( $_POST['watch_items'] ?? [] ) ) ) ),
+            'recommendations'   => [],
+        ];
+
+        foreach ( wp_unslash( $_POST['rec_title'] ?? [] ) as $i => $title ) {
+            $title = sanitize_text_field( $title );
+            if ( empty( $title ) ) {
+                continue;
+            }
+            $overrides['recommendations'][] = [
+                'title'     => $title,
+                'rationale' => sanitize_textarea_field( $_POST['rec_rationale'][ $i ] ?? '' ),
+                'impact'    => sanitize_text_field( $_POST['rec_impact'][ $i ] ?? '' ),
+            ];
+        }
+
+        update_post_meta( $post_id, '_wham_report_overrides', wp_json_encode( $overrides ) );
+
+        require_once WHAM_REPORTS_PATH . 'includes/class-data-collector.php';
+        $collector = new \WHAM_Reports\Data_Collector();
+        $collector->finalize_report( $post_id, $send_email );
+
+        wp_redirect( admin_url( 'admin.php?page=wham-reports-drafts&approved=1' ) );
         exit;
     }
 
@@ -378,6 +556,90 @@ final class WHAM_Reports {
     public static function get_client_map(): array {
         $json = get_option( 'wham_client_map', '{}' );
         return json_decode( $json, true ) ?: [];
+    }
+
+    /**
+     * Sanitize tier config — converts checkbox array to JSON for storage.
+     */
+    public function sanitize_tier_config( $input ): string {
+        if ( ! is_array( $input ) ) {
+            return '{}';
+        }
+
+        $valid_tiers    = [ 'basic', 'professional', 'premium' ];
+        $valid_sections = [ 'maintenance', 'maintenance_detail', 'search', 'search_detail', 'analytics', 'dev_hours' ];
+        $sanitized      = [];
+
+        foreach ( $valid_tiers as $tier ) {
+            $sanitized[ $tier ] = [];
+            foreach ( $valid_sections as $section ) {
+                $sanitized[ $tier ][ $section ] = ! empty( $input[ $tier ][ $section ] );
+            }
+        }
+
+        return wp_json_encode( $sanitized );
+    }
+
+    /**
+     * Sanitize auto-send excludes.
+     *
+     * The form sends wham_autosend_include[] with checked (included) clients.
+     * We invert this to store the excluded IDs.
+     */
+    public function sanitize_autosend_excludes( $input ): string {
+        // This is called with the raw form value of wham_autosend_excludes,
+        // but the actual data comes from wham_autosend_include checkboxes.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce verified by settings API
+        if ( ! isset( $_POST['wham_autosend_has_excludes'] ) ) {
+            // No exclusion UI was rendered (no clients mapped), keep current.
+            return get_option( 'wham_autosend_excludes', '[]' );
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing
+        $included   = isset( $_POST['wham_autosend_include'] ) && is_array( $_POST['wham_autosend_include'] )
+            ? array_keys( $_POST['wham_autosend_include'] )
+            : [];
+        $client_map = json_decode( get_option( 'wham_client_map', '{}' ), true ) ?: [];
+        $excluded   = [];
+
+        foreach ( array_keys( $client_map ) as $mid ) {
+            if ( ! in_array( $mid, $included, false ) ) {
+                $excluded[] = sanitize_text_field( $mid );
+            }
+        }
+
+        return wp_json_encode( array_values( $excluded ) );
+    }
+
+    /**
+     * Get tier configuration (which sections are enabled per tier).
+     */
+    public static function get_tier_config( string $tier = '' ): array {
+        $defaults = [
+            'basic' => [
+                'maintenance' => true, 'maintenance_detail' => false,
+                'search' => true, 'search_detail' => false,
+                'analytics' => false, 'dev_hours' => true,
+            ],
+            'professional' => [
+                'maintenance' => true, 'maintenance_detail' => true,
+                'search' => true, 'search_detail' => true,
+                'analytics' => true, 'dev_hours' => true,
+            ],
+            'premium' => [
+                'maintenance' => true, 'maintenance_detail' => true,
+                'search' => true, 'search_detail' => true,
+                'analytics' => true, 'dev_hours' => true,
+            ],
+        ];
+
+        $config = json_decode( get_option( 'wham_tier_config', '' ), true ) ?: $defaults;
+
+        if ( $tier ) {
+            return $config[ $tier ] ?? $defaults['basic'];
+        }
+
+        return $config;
     }
 
     public static function get_tier_label( string $tier ): string {

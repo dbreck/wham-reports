@@ -1,7 +1,7 @@
 <?php
 /**
  * WHAM Report — Basic Tier PDF Template
- * Categories: C (Updates & Maintenance), G (Dev Hours)
+ * One-page health scorecard with traffic-light indicators.
  *
  * Variables available: $report (array with all report data)
  */
@@ -10,26 +10,95 @@ defined( 'ABSPATH' ) || exit;
 $client       = $report['client'] ?? [];
 $maintenance  = $report['maintenance'] ?? [];
 $dev_hours    = $report['dev_hours'] ?? [];
+$search       = $report['search'] ?? [];
+$insights     = $report['insights'] ?? [];
 $period_label = $report['period_label'] ?? date( 'F Y' );
 
 // Maintenance data.
 $wp_version     = $maintenance['wp_version'] ?? 'N/A';
 $wp_up_to_date  = empty( $maintenance['wp_update_available'] );
 $plugins_total  = $maintenance['plugins_total'] ?? 0;
-$plugins_updated = $maintenance['plugins_updated'] ?? 0;
+$plugins_updates = (int) ( $maintenance['plugins_updates_count'] ?? 0 );
 $theme_name     = $maintenance['theme_name'] ?? 'N/A';
-$theme_version  = $maintenance['theme_version'] ?? '';
 $theme_current  = empty( $maintenance['theme_update_available'] );
 $php_version    = $maintenance['php_version'] ?? 'N/A';
-$last_sync      = $maintenance['last_sync'] ?? '';
-$maint_error    = $maintenance['error'] ?? '';
 
 // Dev hours.
-$hours_included  = $dev_hours['hours_included'] ?? 0;
-$hours_used      = $dev_hours['hours_used'] ?? 0;
-$hours_remaining = $dev_hours['hours_remaining'] ?? 0;
-$work_summary    = $dev_hours['work_summary'] ?? '';
-$dev_error       = $dev_hours['error'] ?? '';
+$hours_included  = (float) ( $dev_hours['hours_included'] ?? 0 );
+$hours_used      = (float) ( $dev_hours['hours_used'] ?? 0 );
+$hours_remaining = (float) ( $dev_hours['hours_remaining'] ?? 0 );
+
+// Search data (may be empty for basic tier).
+$clicks        = $search['clicks'] ?? null;
+$clicks_change = $search['comparison']['clicks_change'] ?? null;
+
+// Health scores.
+$health_scores  = $insights['health_scores'] ?? [];
+$overall_health = $insights['overall_health'] ?? 'green';
+$exec_summary   = $insights['executive_summary'] ?? '';
+
+// Helper: map score to colors.
+$color_map = [
+	'green' => [ 'bg' => '#f0fdf4', 'dot' => '#16a34a', 'border' => '#bbf7d0' ],
+	'amber' => [ 'bg' => '#fffbeb', 'dot' => '#d97706', 'border' => '#fde68a' ],
+	'red'   => [ 'bg' => '#fee2e2', 'dot' => '#dc2626', 'border' => '#fecaca' ],
+];
+$banner_map = [
+	'green' => [ 'bg' => '#16a34a', 'label' => 'EXCELLENT' ],
+	'amber' => [ 'bg' => '#d97706', 'label' => 'GOOD' ],
+	'red'   => [ 'bg' => '#dc2626', 'label' => 'NEEDS ATTENTION' ],
+];
+
+// Card 1: Site Security.
+$sec_score = $health_scores['security'] ?? 'green';
+$sec_colors = $color_map[ $sec_score ] ?? $color_map['green'];
+if ( 'green' === $sec_score ) {
+	$sec_status = 'All systems current';
+} elseif ( 'amber' === $sec_score ) {
+	$sec_status = 'Minor updates pending';
+} else {
+	$sec_status = 'Updates pending';
+}
+
+// Card 2: WordPress Core.
+$wp_score  = $wp_up_to_date ? 'green' : 'amber';
+$wp_colors = $color_map[ $wp_score ];
+$wp_status = $wp_up_to_date ? 'Up to Date' : 'Update Available';
+
+// Card 3: PHP & Server.
+$php_colors = $color_map['green'];
+$php_status = 'Current';
+
+// Card 4: Search Visibility.
+$search_score = $health_scores['seo'] ?? 'green';
+if ( null === $clicks ) {
+	$search_score  = 'green';
+	$search_metric = 'N/A';
+	$search_status = 'Not configured';
+} else {
+	$search_metric = number_format( $clicks );
+	if ( null !== $clicks_change && $clicks_change != 0 ) {
+		$arrow         = $clicks_change > 0 ? "\xE2\x86\x91" : "\xE2\x86\x93";
+		$search_status = $search_metric . ' clicks ' . $arrow . abs( round( $clicks_change ) ) . '%';
+	} else {
+		$search_status = $search_metric . ' clicks';
+	}
+}
+$search_colors = $color_map[ $search_score ] ?? $color_map['green'];
+
+// Card 5: Dev Hours.
+$dev_score = $health_scores['dev_hours'] ?? 'green';
+$dev_colors = $color_map[ $dev_score ] ?? $color_map['green'];
+$dev_pct = $hours_included > 0 ? min( 100, round( ( $hours_used / $hours_included ) * 100 ) ) : 0;
+$dev_bar_color = $dev_colors['dot'];
+
+// Card 6: Overall Health.
+$overall_colors = $color_map[ $overall_health ] ?? $color_map['green'];
+$overall_label  = $banner_map[ $overall_health ]['label'] ?? 'EXCELLENT';
+
+// Banner.
+$banner_bg    = $banner_map[ $overall_health ]['bg'] ?? '#16a34a';
+$banner_label = $banner_map[ $overall_health ]['label'] ?? 'EXCELLENT';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,167 +110,189 @@ $dev_error       = $dev_hours['error'] ?? '';
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        font-size: 11pt;
-        line-height: 1.5;
-        color: #1a1a1a;
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 10pt;
+        line-height: 1.4;
+        color: #2d3748;
         background: #fff;
     }
 
-    .page { padding: 40px 50px; max-width: 800px; margin: 0 auto; }
+    .page { padding: 0; }
 
     /* Header */
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        border-bottom: 3px solid #1a1a1a;
-        padding-bottom: 20px;
-        margin-bottom: 30px;
+    .header-bar {
+        background-color: #1a2332;
+        color: #ffffff;
+        padding: 30px 50px 25px 50px;
     }
-    .header-brand h1 {
-        font-size: 28pt;
-        font-weight: 800;
-        letter-spacing: -0.03em;
-        color: #1a1a1a;
-        line-height: 1;
-    }
-    .header-brand p {
-        font-size: 9pt;
-        color: #666;
-        margin-top: 4px;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-    }
-    .header-meta { text-align: right; font-size: 9pt; color: #666; }
-    .header-meta .client-name {
-        font-size: 14pt;
-        font-weight: 700;
-        color: #1a1a1a;
-        margin-bottom: 2px;
-    }
-
-    /* Sections */
-    .section {
-        margin-bottom: 28px;
-        page-break-inside: avoid;
-    }
-    .section-title {
-        font-size: 13pt;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #1a1a1a;
-        border-bottom: 1px solid #ddd;
-        padding-bottom: 6px;
-        margin-bottom: 14px;
-    }
-
-    /* Metric cards */
-    .metrics-row {
-        display: flex;
-        gap: 16px;
-        margin-bottom: 16px;
-    }
-    .metric-card {
-        flex: 1;
-        background: #f8f8f8;
-        border: 1px solid #e5e5e5;
-        border-radius: 6px;
-        padding: 14px 16px;
-        text-align: center;
-    }
-    .metric-value {
-        font-size: 24pt;
-        font-weight: 800;
-        line-height: 1.1;
-        color: #1a1a1a;
-    }
-    .metric-value.green { color: #16a34a; }
-    .metric-value.amber { color: #d97706; }
-    .metric-value.red { color: #dc2626; }
-    .metric-label {
-        font-size: 8pt;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #888;
-        margin-top: 4px;
-    }
-
-    /* Status table */
-    .status-table {
+    .header-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 10pt;
     }
-    .status-table th {
-        text-align: left;
-        font-weight: 600;
-        padding: 8px 12px;
-        background: #f4f4f4;
-        border-bottom: 1px solid #ddd;
-        font-size: 9pt;
+    .header-table td {
+        vertical-align: bottom;
+        padding: 0;
+    }
+    .brand-name {
+        font-size: 32pt;
+        font-weight: bold;
+        letter-spacing: 2px;
+        color: #ffffff;
+        line-height: 1;
+    }
+    .brand-tagline {
+        font-size: 8pt;
+        color: #8899aa;
+        letter-spacing: 1px;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #555;
+        padding-top: 4px;
     }
-    .status-table td {
-        padding: 8px 12px;
-        border-bottom: 1px solid #eee;
+    .header-right {
+        text-align: right;
     }
-    .status-badge {
-        display: inline-block;
-        padding: 2px 8px;
-        border-radius: 3px;
+    .client-name {
+        font-size: 16pt;
+        font-weight: bold;
+        color: #ffffff;
+        line-height: 1.2;
+    }
+    .header-detail {
         font-size: 9pt;
-        font-weight: 600;
+        color: #8899aa;
+        line-height: 1.6;
     }
-    .badge-green { background: #dcfce7; color: #166534; }
-    .badge-amber { background: #fef3c7; color: #92400e; }
-    .badge-red { background: #fee2e2; color: #991b1b; }
+    .plan-badge {
+        display: inline-block;
+        background-color: #2a3f56;
+        color: #8cb4d8;
+        font-size: 8pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 3px 12px;
+        border-radius: 3px;
+        margin-top: 6px;
+    }
 
-    /* Hours bar */
-    .hours-bar-container {
-        background: #eee;
-        border-radius: 4px;
-        height: 20px;
-        margin: 10px 0;
-        overflow: hidden;
+    /* Health banner */
+    .health-banner {
+        padding: 14px 50px;
+        text-align: center;
     }
-    .hours-bar-fill {
-        height: 100%;
-        border-radius: 4px;
-        transition: width 0.3s;
+    .health-banner-text {
+        font-size: 16pt;
+        font-weight: bold;
+        color: #ffffff;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }
+
+    /* Content area */
+    .content { padding: 24px 50px 16px 50px; }
+
+    /* Cards grid */
+    .cards-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 10px;
+        margin-left: -10px;
+    }
+    .card-cell {
+        width: 33%;
+        border-radius: 6px;
+        padding: 14px 14px 12px 14px;
+        vertical-align: top;
+    }
+    .card-header-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 6px;
+    }
+    .card-header-table td {
+        padding: 0;
+        vertical-align: middle;
+    }
+    .dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        display: inline-block;
+    }
+    .card-label {
+        font-size: 9pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #1a2332;
+    }
+    .card-status {
+        font-size: 9pt;
+        color: #4a5568;
+        line-height: 1.3;
+    }
+    .card-metric {
+        font-size: 18pt;
+        font-weight: bold;
+        color: #1a2332;
+        line-height: 1.1;
+        padding-top: 2px;
+    }
+
+    /* Progress bar (table-based) */
+    .bar-outer {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .bar-outer td {
+        height: 10px;
+        padding: 0;
+    }
+    .bar-fill {
+        border-radius: 5px 0 0 5px;
+    }
+    .bar-empty {
+        background-color: #e2e8f0;
+        border-radius: 0 5px 5px 0;
+    }
+    .bar-fill-full {
+        border-radius: 5px;
+    }
+    .bar-empty-full {
+        border-radius: 5px;
+    }
+
+    /* Summary section */
+    .summary-section {
+        padding: 16px 50px 12px 50px;
+    }
+    .summary-title {
+        font-size: 9pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #1a2332;
+        padding-bottom: 6px;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .summary-text {
+        font-size: 10pt;
+        color: #4a5568;
+        line-height: 1.5;
     }
 
     /* Footer */
-    .footer {
-        margin-top: 40px;
-        padding-top: 16px;
-        border-top: 1px solid #ddd;
+    .footer-bar {
+        padding: 14px 50px;
+        background-color: #1a2332;
+        color: #8899aa;
         font-size: 8pt;
-        color: #999;
         text-align: center;
     }
-
-    /* Notice */
-    .notice {
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        border-radius: 4px;
-        padding: 10px 14px;
-        font-size: 9pt;
-        color: #92400e;
-        margin-bottom: 12px;
-    }
-
-    /* Work summary */
-    .work-summary {
-        background: #f8f8f8;
-        border-left: 3px solid #1a1a1a;
-        padding: 10px 14px;
-        font-size: 10pt;
-        margin-top: 12px;
+    .footer-bar .footer-brand {
+        font-weight: bold;
+        color: #ffffff;
+        letter-spacing: 1px;
     }
 </style>
 </head>
@@ -209,133 +300,152 @@ $dev_error       = $dev_hours['error'] ?? '';
 <div class="page">
 
     <!-- Header -->
-    <div class="header">
-        <div class="header-brand">
-            <h1>WHAM</h1>
-            <p>Web Hosting &amp; Maintenance</p>
-        </div>
-        <div class="header-meta">
-            <div class="client-name"><?php echo esc_html( $client['name'] ?? 'Client' ); ?></div>
-            <div><?php echo esc_html( $client['url'] ?? '' ); ?></div>
-            <div><?php echo esc_html( $period_label ); ?> Report</div>
-            <div>Basic Plan</div>
-        </div>
-    </div>
-
-    <!-- Category C: Updates & Maintenance -->
-    <div class="section">
-        <div class="section-title">Updates &amp; Maintenance</div>
-
-        <?php if ( $maint_error ) : ?>
-            <div class="notice"><?php echo esc_html( $maint_error ); ?></div>
-        <?php else : ?>
-
-        <div class="metrics-row">
-            <div class="metric-card">
-                <div class="metric-value <?php echo $wp_up_to_date ? 'green' : 'amber'; ?>">
-                    <?php echo esc_html( $wp_version ); ?>
-                </div>
-                <div class="metric-label">WordPress Version</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value <?php echo $plugins_updated === $plugins_total ? 'green' : 'amber'; ?>">
-                    <?php echo esc_html( $plugins_updated ); ?>/<?php echo esc_html( $plugins_total ); ?>
-                </div>
-                <div class="metric-label">Plugins Updated</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value green">
-                    <?php echo esc_html( $php_version ); ?>
-                </div>
-                <div class="metric-label">PHP Version</div>
-            </div>
-        </div>
-
-        <table class="status-table">
+    <div class="header-bar">
+        <table class="header-table">
             <tr>
-                <th>Component</th>
-                <th>Version</th>
-                <th>Status</th>
-            </tr>
-            <tr>
-                <td>WordPress Core</td>
-                <td><?php echo esc_html( $wp_version ); ?></td>
-                <td><span class="status-badge <?php echo $wp_up_to_date ? 'badge-green' : 'badge-amber'; ?>"><?php echo $wp_up_to_date ? 'Up to Date' : 'Update Available'; ?></span></td>
-            </tr>
-            <tr>
-                <td>Theme: <?php echo esc_html( $theme_name ); ?></td>
-                <td><?php echo esc_html( $theme_version ); ?></td>
-                <td><span class="status-badge <?php echo $theme_current ? 'badge-green' : 'badge-amber'; ?>"><?php echo $theme_current ? 'Up to Date' : 'Update Available'; ?></span></td>
-            </tr>
-            <tr>
-                <td>PHP</td>
-                <td><?php echo esc_html( $php_version ); ?></td>
-                <td><span class="status-badge badge-green">Active</span></td>
-            </tr>
-            <tr>
-                <td>Plugins</td>
-                <td><?php echo esc_html( $plugins_total ); ?> installed</td>
-                <td><span class="status-badge <?php echo $plugins_updated === $plugins_total ? 'badge-green' : 'badge-amber'; ?>">
-                    <?php echo $plugins_updated === $plugins_total ? 'All Updated' : ( $plugins_total - $plugins_updated ) . ' Need Updates'; ?>
-                </span></td>
+                <td style="width: 50%;">
+                    <div class="brand-name">WHAM</div>
+                    <div class="brand-tagline">Web Hosting &amp; Maintenance</div>
+                </td>
+                <td class="header-right">
+                    <div class="client-name"><?php echo esc_html( $client['name'] ?? 'Client' ); ?></div>
+                    <div class="header-detail"><?php echo esc_html( $client['url'] ?? '' ); ?></div>
+                    <div class="header-detail"><?php echo esc_html( $period_label ); ?> Report</div>
+                    <div class="plan-badge">Basic Plan</div>
+                </td>
             </tr>
         </table>
-
-        <?php if ( $last_sync ) : ?>
-            <p style="font-size: 8pt; color: #999; margin-top: 8px;">Last synced: <?php echo esc_html( date( 'M j, Y g:i A', strtotime( $last_sync ) ) ); ?></p>
-        <?php endif; ?>
-
-        <?php endif; ?>
     </div>
 
-    <!-- Category G: Development Hours -->
-    <div class="section">
-        <div class="section-title">Development Hours</div>
-
-        <?php if ( $dev_error ) : ?>
-            <div class="notice"><?php echo esc_html( $dev_error ); ?></div>
-        <?php else : ?>
-
-        <?php
-            $pct = $hours_included > 0 ? min( 100, round( ( $hours_used / $hours_included ) * 100 ) ) : 0;
-            $bar_color = $pct > 90 ? '#dc2626' : ( $pct > 70 ? '#d97706' : '#16a34a' );
-        ?>
-
-        <div class="metrics-row">
-            <div class="metric-card">
-                <div class="metric-value"><?php echo esc_html( $hours_used ); ?></div>
-                <div class="metric-label">Hours Used</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value"><?php echo esc_html( $hours_included ); ?></div>
-                <div class="metric-label">Hours Included</div>
-            </div>
-            <div class="metric-card">
-                <div class="metric-value <?php echo $hours_remaining > 0 ? 'green' : 'red'; ?>">
-                    <?php echo esc_html( $hours_remaining ); ?>
-                </div>
-                <div class="metric-label">Hours Remaining</div>
-            </div>
-        </div>
-
-        <div class="hours-bar-container">
-            <div class="hours-bar-fill" style="width: <?php echo $pct; ?>%; background: <?php echo $bar_color; ?>;"></div>
-        </div>
-        <p style="font-size: 9pt; color: #666; text-align: center;"><?php echo $pct; ?>% of included hours used</p>
-
-        <?php if ( $work_summary ) : ?>
-            <div class="work-summary">
-                <strong>Work Performed:</strong> <?php echo esc_html( $work_summary ); ?>
-            </div>
-        <?php endif; ?>
-
-        <?php endif; ?>
+    <!-- Overall Health Banner -->
+    <div class="health-banner" style="background-color: <?php echo $banner_bg; ?>;">
+        <div class="health-banner-text">Site Health: <?php echo esc_html( $banner_label ); ?></div>
     </div>
+
+    <!-- Health Cards -->
+    <div class="content">
+        <table class="cards-table">
+            <!-- Row 1: Security, WordPress Core, PHP & Server -->
+            <tr>
+                <!-- Card 1: Site Security -->
+                <td class="card-cell" style="background-color: <?php echo $sec_colors['bg']; ?>; border: 1px solid <?php echo $sec_colors['border']; ?>;">
+                    <table class="card-header-table">
+                        <tr>
+                            <td style="width: 20px;"><span class="dot" style="background-color: <?php echo $sec_colors['dot']; ?>;"></span></td>
+                            <td><span class="card-label">Site Security</span></td>
+                        </tr>
+                    </table>
+                    <div class="card-status"><?php echo esc_html( $sec_status ); ?></div>
+                    <div class="card-metric" style="color: <?php echo $sec_colors['dot']; ?>;">
+                        <?php echo esc_html( $plugins_total ); ?> <span style="font-size: 9pt; color: #718096; font-weight: normal;">plugins</span>
+                    </div>
+                </td>
+
+                <!-- Card 2: WordPress Core -->
+                <td class="card-cell" style="background-color: <?php echo $wp_colors['bg']; ?>; border: 1px solid <?php echo $wp_colors['border']; ?>;">
+                    <table class="card-header-table">
+                        <tr>
+                            <td style="width: 20px;"><span class="dot" style="background-color: <?php echo $wp_colors['dot']; ?>;"></span></td>
+                            <td><span class="card-label">WordPress Core</span></td>
+                        </tr>
+                    </table>
+                    <div class="card-status"><?php echo esc_html( $wp_status ); ?></div>
+                    <div class="card-metric"><?php echo esc_html( $wp_version ); ?></div>
+                </td>
+
+                <!-- Card 3: PHP & Server -->
+                <td class="card-cell" style="background-color: <?php echo $php_colors['bg']; ?>; border: 1px solid <?php echo $php_colors['border']; ?>;">
+                    <table class="card-header-table">
+                        <tr>
+                            <td style="width: 20px;"><span class="dot" style="background-color: <?php echo $php_colors['dot']; ?>;"></span></td>
+                            <td><span class="card-label">PHP &amp; Server</span></td>
+                        </tr>
+                    </table>
+                    <div class="card-status"><?php echo esc_html( $php_status ); ?></div>
+                    <div class="card-metric"><?php echo esc_html( $php_version ); ?></div>
+                </td>
+            </tr>
+
+            <!-- Row 2: Search Visibility, Dev Hours, Overall Health -->
+            <tr>
+                <!-- Card 4: Search Visibility -->
+                <td class="card-cell" style="background-color: <?php echo $search_colors['bg']; ?>; border: 1px solid <?php echo $search_colors['border']; ?>;">
+                    <table class="card-header-table">
+                        <tr>
+                            <td style="width: 20px;"><span class="dot" style="background-color: <?php echo $search_colors['dot']; ?>;"></span></td>
+                            <td><span class="card-label">Search Visibility</span></td>
+                        </tr>
+                    </table>
+                    <div class="card-status"><?php echo esc_html( $search_status ); ?></div>
+                    <?php if ( null !== $clicks ) : ?>
+                        <div class="card-metric"><?php echo esc_html( $search_metric ); ?></div>
+                    <?php else : ?>
+                        <div class="card-metric" style="color: #a0aec0;">&mdash;</div>
+                    <?php endif; ?>
+                </td>
+
+                <!-- Card 5: Dev Hours -->
+                <td class="card-cell" style="background-color: <?php echo $dev_colors['bg']; ?>; border: 1px solid <?php echo $dev_colors['border']; ?>;">
+                    <table class="card-header-table">
+                        <tr>
+                            <td style="width: 20px;"><span class="dot" style="background-color: <?php echo $dev_colors['dot']; ?>;"></span></td>
+                            <td><span class="card-label">Dev Hours</span></td>
+                        </tr>
+                    </table>
+                    <div class="card-status"><?php echo esc_html( $hours_used . '/' . $hours_included . ' used' ); ?></div>
+                    <!-- Table-based progress bar -->
+                    <table class="bar-outer" style="margin-top: 6px;">
+                        <tr>
+                            <?php if ( $dev_pct > 0 && $dev_pct < 100 ) : ?>
+                                <td class="bar-fill" style="width: <?php echo $dev_pct; ?>%; background-color: <?php echo $dev_bar_color; ?>;"></td>
+                                <td class="bar-empty"></td>
+                            <?php elseif ( $dev_pct >= 100 ) : ?>
+                                <td class="bar-fill-full" style="width: 100%; background-color: <?php echo $dev_bar_color; ?>;"></td>
+                            <?php else : ?>
+                                <td class="bar-empty-full" style="width: 100%;"></td>
+                            <?php endif; ?>
+                        </tr>
+                    </table>
+                    <div style="font-size: 8pt; color: #718096; text-align: center; padding-top: 3px;"><?php echo $dev_pct; ?>%</div>
+                </td>
+
+                <!-- Card 6: Overall Health -->
+                <td class="card-cell" style="background-color: <?php echo $overall_colors['bg']; ?>; border: 1px solid <?php echo $overall_colors['border']; ?>;">
+                    <table class="card-header-table">
+                        <tr>
+                            <td style="width: 20px;"><span class="dot" style="background-color: <?php echo $overall_colors['dot']; ?>;"></span></td>
+                            <td><span class="card-label">Overall Health</span></td>
+                        </tr>
+                    </table>
+                    <div class="card-status"><?php echo esc_html( $overall_label ); ?></div>
+                    <div class="card-metric" style="color: <?php echo $overall_colors['dot']; ?>;">
+                        <?php
+                        if ( 'green' === $overall_health ) {
+                            echo "\xE2\x9C\x93"; // checkmark
+                        } elseif ( 'amber' === $overall_health ) {
+                            echo '!';
+                        } else {
+                            echo "\xE2\x9C\x97"; // X mark
+                        }
+                        ?>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Executive Summary -->
+    <?php if ( $exec_summary ) : ?>
+    <div class="summary-section">
+        <div class="summary-title">Summary</div>
+        <div class="summary-text"><?php echo esc_html( $exec_summary ); ?></div>
+    </div>
+    <?php endif; ?>
 
     <!-- Footer -->
-    <div class="footer">
-        <p>WHAM — Web Hosting &amp; Maintenance by Clear Phosphor &nbsp;|&nbsp; <?php echo esc_html( $period_label ); ?></p>
-        <p>Questions? Contact us at support@clearph.com</p>
+    <div class="footer-bar">
+        <span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear Phosphor &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
+        <br>Questions? Contact us at support@clearph.com
     </div>
 
 </div>

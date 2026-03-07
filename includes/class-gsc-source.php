@@ -54,6 +54,15 @@ class GSC_Source {
             'position'     => round( $aggregate['position'] ?? 0, 1 ),
         ];
 
+        // Previous period comparison (all tiers — needed by Insights Engine).
+        $prev = $this->query_search_analytics( $gsc_property, $token, $prev_start, $prev_end );
+        $result['comparison'] = [
+            'prev_clicks'        => $prev['clicks'] ?? 0,
+            'prev_impressions'   => $prev['impressions'] ?? 0,
+            'clicks_change'      => $this->percent_change( $prev['clicks'] ?? 0, $aggregate['clicks'] ?? 0 ),
+            'impressions_change' => $this->percent_change( $prev['impressions'] ?? 0, $aggregate['impressions'] ?? 0 ),
+        ];
+
         // Professional+ gets more detail.
         if ( in_array( $tier, [ 'professional', 'premium' ], true ) ) {
             // Top queries.
@@ -64,14 +73,30 @@ class GSC_Source {
             $top_pages = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date, [ 'page' ], 5 );
             $result['top_pages'] = $this->format_rows( $top_pages['rows'] ?? [], 'page' );
 
-            // Previous period for comparison.
-            $prev = $this->query_search_analytics( $gsc_property, $token, $prev_start, $prev_end );
-            $result['comparison'] = [
-                'prev_clicks'      => $prev['clicks'] ?? 0,
-                'prev_impressions' => $prev['impressions'] ?? 0,
-                'clicks_change'    => $this->percent_change( $prev['clicks'] ?? 0, $aggregate['clicks'] ?? 0 ),
-                'impressions_change' => $this->percent_change( $prev['impressions'] ?? 0, $aggregate['impressions'] ?? 0 ),
-            ];
+            // Daily time series for charts.
+            $daily_current = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date, [ 'date' ], 31 );
+            if ( ! empty( $daily_current['rows'] ) ) {
+                $result['daily_clicks']      = [];
+                $result['daily_impressions'] = [];
+                $result['daily_labels']      = [];
+                foreach ( $daily_current['rows'] as $row ) {
+                    $date_str = $row['keys'][0] ?? '';
+                    $result['daily_labels'][]      = date( 'M j', strtotime( $date_str ) );
+                    $result['daily_clicks'][]      = (int) ( $row['clicks'] ?? 0 );
+                    $result['daily_impressions'][] = (int) ( $row['impressions'] ?? 0 );
+                }
+            }
+
+            // Previous period daily data.
+            $daily_prev = $this->query_search_analytics( $gsc_property, $token, $prev_start, $prev_end, [ 'date' ], 31 );
+            if ( ! empty( $daily_prev['rows'] ) ) {
+                $result['prev_daily_clicks']      = [];
+                $result['prev_daily_impressions'] = [];
+                foreach ( $daily_prev['rows'] as $row ) {
+                    $result['prev_daily_clicks'][]      = (int) ( $row['clicks'] ?? 0 );
+                    $result['prev_daily_impressions'][] = (int) ( $row['impressions'] ?? 0 );
+                }
+            }
         }
 
         return $result;
@@ -229,7 +254,7 @@ class GSC_Source {
 /**
  * URL-safe base64 encoding (no padding).
  */
-if ( ! function_exists( 'base64url_encode' ) ) {
+if ( ! function_exists( __NAMESPACE__ . '\\base64url_encode' ) ) {
     function base64url_encode( string $data ): string {
         return rtrim( strtr( base64_encode( $data ), '+/', '-_' ), '=' );
     }

@@ -38,12 +38,55 @@
         <!-- Generate Reports -->
         <div class="wham-card">
             <h2>Generate Reports</h2>
-            <p>Run the report generation pipeline for all active clients. This will collect data from all sources, generate PDFs, and optionally send emails.</p>
-            <form method="post" action="<?php echo admin_url( 'admin-post.php' ); ?>">
+            <p>Run the report generation pipeline. Select a period and optionally a specific client.</p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
                 <?php wp_nonce_field( 'wham_generate_reports' ); ?>
                 <input type="hidden" name="action" value="wham_generate_reports" />
+
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="wham_report_period">Report Period</label></th>
+                        <td>
+                            <select name="wham_report_period" id="wham_report_period">
+                                <?php
+                                $now = new \DateTime( 'first day of this month' );
+                                for ( $i = 0; $i < 12; $i++ ) {
+                                    $value = $now->format( 'Y-m' );
+                                    $label = $now->format( 'F Y' );
+                                    printf(
+                                        '<option value="%s"%s>%s</option>',
+                                        esc_attr( $value ),
+                                        0 === $i ? ' selected' : '',
+                                        esc_html( $label )
+                                    );
+                                    $now->modify( '-1 month' );
+                                }
+                                ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="wham_client_id">Client</label></th>
+                        <td>
+                            <select name="wham_client_id" id="wham_client_id">
+                                <option value="">All Clients</option>
+                                <?php
+                                $client_map = \WHAM_Reports::get_client_map();
+                                foreach ( $client_map as $mid => $cfg ) {
+                                    printf(
+                                        '<option value="%s">%s</option>',
+                                        esc_attr( $mid ),
+                                        esc_html( $cfg['client_name'] ?? $mid )
+                                    );
+                                }
+                                ?>
+                            </select>
+                        </td>
+                    </tr>
+                </table>
+
                 <button type="submit" class="button button-primary button-hero">
-                    Generate All Reports Now
+                    Generate Reports
                 </button>
             </form>
             <?php
