@@ -60,8 +60,12 @@ final class WHAM_Reports {
         add_action( 'admin_init', [ $this, 'register_settings' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'admin_assets' ] );
 
+        // GitHub updater.
+        new \WHAM_Reports\GitHub_Updater();
+
         // Plugin row meta — "Check for updates" link.
         add_filter( 'plugin_row_meta', [ $this, 'plugin_row_meta' ], 10, 2 );
+        add_action( 'admin_post_wham_check_updates', [ $this, 'handle_check_updates' ] );
 
         // Dashboard shortcode.
         add_shortcode( 'wham_dashboard', [ $this, 'render_dashboard_shortcode' ] );
@@ -279,6 +283,9 @@ final class WHAM_Reports {
         register_setting( 'wham_reports_settings', 'wham_company_name' );
         register_setting( 'wham_reports_settings', 'wham_require_review' );
 
+        // GitHub updater token.
+        register_setting( 'wham_reports_settings', 'wham_github_token' );
+
         // Auto-send schedule (own settings group — saved from Schedule page).
         register_setting( 'wham_schedule_settings', 'wham_autosend_enabled', [
             'sanitize_callback' => function ( $val ) { return $val ? '1' : '0'; },
@@ -306,9 +313,29 @@ final class WHAM_Reports {
      */
     public function plugin_row_meta( array $meta, string $plugin_file ): array {
         if ( plugin_basename( __FILE__ ) === $plugin_file ) {
-            $meta[] = '<a href="' . esc_url( self_admin_url( 'update-core.php?force-check=1' ) ) . '">Check for updates</a>';
+            $url = wp_nonce_url( admin_url( 'admin-post.php?action=wham_check_updates' ), 'wham_check_updates' );
+            $meta[] = '<a href="' . esc_url( $url ) . '">Check for updates</a>';
         }
         return $meta;
+    }
+
+    /**
+     * Handle "Check for updates" — flush GitHub cache and redirect back to plugins page.
+     */
+    public function handle_check_updates(): void {
+        check_admin_referer( 'wham_check_updates' );
+
+        if ( ! current_user_can( 'update_plugins' ) ) {
+            wp_die( 'Unauthorized' );
+        }
+
+        \WHAM_Reports\GitHub_Updater::flush_cache();
+
+        // Force WordPress to re-check plugin updates now.
+        wp_clean_plugins_cache( true );
+
+        wp_safe_redirect( self_admin_url( 'plugins.php?s=wham&plugin_status=all' ) );
+        exit;
     }
 
     public function admin_assets( string $hook ): void {

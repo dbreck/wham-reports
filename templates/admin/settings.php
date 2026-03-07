@@ -49,6 +49,19 @@
             </tr>
         </table>
 
+        <h2>Plugin Updates</h2>
+        <table class="form-table">
+            <tr>
+                <th scope="row"><label for="wham_github_token">GitHub Personal Access Token</label></th>
+                <td>
+                    <input type="password" id="wham_github_token" name="wham_github_token"
+                           value="<?php echo esc_attr( get_option( 'wham_github_token' ) ); ?>"
+                           class="regular-text" autocomplete="off" />
+                    <p class="description">Required for automatic update checks from the private GitHub repo (<code>dbreck/wham-reports</code>). Generate a fine-grained token with <strong>Contents: Read</strong> access at <a href="https://github.com/settings/personal-access-tokens" target="_blank">github.com/settings/personal-access-tokens</a>.</p>
+                </td>
+            </tr>
+        </table>
+
         <h2>Email Settings</h2>
         <table class="form-table">
             <tr>
