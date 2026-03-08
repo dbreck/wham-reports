@@ -51,11 +51,18 @@ Each source class has a `collect()` method returning a normalized array:
 
 `Report_Renderer` + `[wham_dashboard]` shortcode. Users with `wham_client` role see only their reports (matched via `_wham_monday_client_id` user meta). REST API at `wham/v1/reports`.
 
+### Insights & Charts (v2.0.0+)
+
+- `Insights_Engine` — auto-generates wins, watch items, recommendations, and health scores (green/amber/red) from metric thresholds
+- `Chart_Generator` — generates PNG chart images via QuickChart.io API, caches in `wp-content/uploads/wham-reports/charts/`
+- `GitHub_Updater` — checks `dbreck/wham-reports` GitHub releases for plugin updates; hooks into WP update system
+
 ### Templates
 
-- `templates/pdf/report-basic.php` / `report-professional.php` — HTML templates for PDF (inline styles)
-- `templates/dashboard/` — client-facing dashboard views
-- `templates/admin/` — settings, mapping, admin dashboard
+- `templates/pdf/report-basic.php` — 1-page health scorecard with 6 traffic-light cards (table-based layout for DomPDF)
+- `templates/pdf/report-professional.php` — 4-6 page narrative report with embedded charts, KPI cards, data tables, recommendations
+- `templates/dashboard/` — client-facing dashboard views (report-detail.php has insights, charts, recommendations)
+- `templates/admin/` — settings, mapping, admin dashboard, report-draft review, schedule configuration
 - `templates/email/` — report delivery email
 
 ## Tier System
@@ -74,6 +81,8 @@ Three client tiers control data depth:
 | `wham_ga4_credentials_json` | Google service account JSON (GA4, falls back to GSC creds) |
 | `wham_mainwp_app_password` | MainWP REST API app password |
 | `wham_client_map` | JSON mapping: monday_id -> {mainwp_site_id, gsc_property, ga4_property, tier, client_name, client_url, client_email} |
+| `wham_github_token` | GitHub PAT for private repo update checks (or use `WHAM_GITHUB_TOKEN` constant) |
+| `wham_require_review` | If enabled, reports are created as drafts requiring admin approval before publishing |
 
 ## Cron
 
@@ -99,10 +108,15 @@ The mapping page is the most complex admin template. Key architecture:
 - **Use agent teams** for non-trivial implementation tasks (2+ files or distinct parallel workstreams) per global SOPs.
 - **Deploy after changes** — the user can only see changes once the plugin is updated on Flywheel. After making changes, transfer modified files via SSH (see "Deployment Shortcut" below). Always confirm with the user before deploying.
 
-## Deployment Shortcut (Single File)
+## GitHub Repo & Updates
 
-For single-file updates, skip tar and pipe directly:
-```bash
-ssh -T -i ~/.ssh/flywheel_clearph team+clearph+wham@ssh.getflywheel.com \
-  "cat > /www/wp-content/plugins/wham-reports/path/to/file.php" < local/path/to/file.php
-```
+- **Repo:** `github.com/dbreck/wham-reports` (private)
+- **Branch:** `master`
+- **Releases:** Tag with `gh release create vX.Y.Z` — the plugin's GitHub_Updater class checks releases automatically
+- **Token:** Production needs a GitHub PAT (fine-grained, Contents: Read) stored in Settings or `wp-config.php`
+
+## Deployment
+
+Two methods:
+1. **GitHub releases** (preferred): push + create release, then "Check for updates" on plugins page
+2. **SSH direct** (fallback): `ssh -T -i ~/.ssh/flywheel_clearph team+clearph+wham@ssh.getflywheel.com "cat > /www/wp-content/plugins/wham-reports/path/to/file.php" < local/path/to/file.php`
