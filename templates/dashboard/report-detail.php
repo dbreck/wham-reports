@@ -74,7 +74,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	<?php if ( ! empty( $insights ) ) : ?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a2332" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
 			<h3>Report Summary</h3>
 		</div>
 
@@ -129,7 +129,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	<!-- Maintenance Section -->
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a2332" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
 			<h3>Updates &amp; Maintenance</h3>
 		</div>
 		<?php if ( ! empty( $maintenance['error'] ) ) : ?>
@@ -201,7 +201,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a2332" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 			<h3>Search Performance</h3>
 		</div>
 		<?php if ( ! empty( $search['error'] ) ) : ?>
@@ -292,7 +292,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a2332" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
 			<h3>Website Analytics</h3>
 		</div>
 		<div class="wham-metric-grid wham-metric-grid-4">
@@ -381,7 +381,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	<?php if ( ! empty( $insights['recommendations'] ) ) : ?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a2332" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
 			<h3>Recommendations</h3>
 		</div>
 		<?php foreach ( $insights['recommendations'] as $i => $rec ) : ?>
@@ -417,6 +417,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 				},
 				options: {
 					responsive: true,
+					maintainAspectRatio: false,
 					interaction: { intersect: false, mode: 'index' },
 					plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } },
 					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } } }
@@ -449,6 +450,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 				},
 				options: {
 					responsive: true,
+					maintainAspectRatio: false,
 					plugins: { legend: { display: false } },
 					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false } } }
 				}
@@ -470,6 +472,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 				},
 				options: {
 					responsive: true,
+					maintainAspectRatio: false,
 					interaction: { intersect: false, mode: 'index' },
 					plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } },
 					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } } }

@@ -86,21 +86,21 @@ if ( ! function_exists( 'wham_format_duration' ) ) {
 	}
 }
 
-// MoM change badge helper.
+// MoM change badge helper — uses +/- text (DomPDF-safe, no Unicode arrows).
 if ( ! function_exists( 'wham_mom_badge' ) ) {
 	function wham_mom_badge( $current, $previous, $suffix = '' ) {
 		if ( ! $previous ) return '';
 		$change = round( ( ( $current - $previous ) / $previous ) * 100, 1 );
-		$arrow  = $change >= 0 ? '&#9650;' : '&#9660;';
-		$color  = $change >= 0 ? '#16a34a' : '#dc2626';
-		return '<span style="font-size:8pt;color:' . $color . ';font-weight:bold;">' . $arrow . ' ' . abs( $change ) . '%' . $suffix . '</span>';
+		$prefix = $change >= 0 ? '+' : '-';
+		$color  = $change >= 0 ? '#059669' : '#dc2626';
+		return '<span style="font-size:8pt;color:' . $color . ';font-weight:bold;">' . $prefix . abs( $change ) . '%' . $suffix . '</span>';
 	}
 }
 
 // Health color helper.
 if ( ! function_exists( 'wham_health_color' ) ) {
 	function wham_health_color( $score ) {
-		$map = [ 'green' => '#16a34a', 'amber' => '#d97706', 'red' => '#dc2626' ];
+		$map = [ 'green' => '#059669', 'amber' => '#d97706', 'red' => '#dc2626' ];
 		return $map[ $score ] ?? '#718096';
 	}
 }
@@ -110,6 +110,17 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 	function wham_health_bg( $score ) {
 		$map = [ 'green' => '#dcfce7', 'amber' => '#fef3c7', 'red' => '#fee2e2' ];
 		return $map[ $score ] ?? '#f7fafc';
+	}
+}
+
+// Chart image helper — base64-encodes for reliable DomPDF rendering.
+if ( ! function_exists( 'wham_chart_img' ) ) {
+	function wham_chart_img( $path, $max_width = '520px' ) {
+		if ( empty( $path ) || ! file_exists( $path ) ) {
+			return ''; // Silently skip missing charts.
+		}
+		$data = base64_encode( file_get_contents( $path ) );
+		return '<div class="chart-wrap"><img src="data:image/png;base64,' . $data . '" style="width:100%;max-width:' . $max_width . ';"></div>';
 	}
 }
 ?>
@@ -219,8 +230,9 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 		letter-spacing: 1px;
 	}
 	.health-card-status {
-		font-size: 16pt;
+		font-size: 11pt;
 		font-weight: bold;
+		letter-spacing: 1px;
 		padding-top: 4px;
 	}
 
@@ -246,7 +258,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 		line-height: 1.1;
 		color: #1a2332;
 	}
-	.metric-value-green { color: #16a34a; }
+	.metric-value-green { color: #059669; }
 	.metric-value-amber { color: #d97706; }
 	.metric-value-red { color: #dc2626; }
 	.metric-label {
@@ -307,7 +319,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 		top: 10px;
 		width: 10px;
 		height: 10px;
-		background-color: #16a34a;
+		background-color: #059669;
 		border-radius: 50%;
 	}
 	.watch-list li:before {
@@ -436,7 +448,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 	}
 	.rec-impact {
 		font-size: 9pt;
-		color: #16a34a;
+		color: #059669;
 		font-weight: bold;
 		margin-top: 4px;
 		padding-left: 32px;
@@ -515,22 +527,22 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 		'traffic'   => 'Traffic',
 		'dev_hours' => 'Dev Activity',
 	];
-	$health_icons = [
-		'green' => '&#10003;',
-		'amber' => '&#9888;',
-		'red'   => '&#10007;',
+	$health_status_text = [
+		'green' => 'HEALTHY',
+		'amber' => 'MONITOR',
+		'red'   => 'ALERT',
 	];
 	?>
 	<table class="health-cards">
 		<tr>
 			<?php foreach ( $health_labels as $key => $label ) :
-				$score = $health_scores[ $key ] ?? 'green';
-				$bg    = wham_health_bg( $score );
-				$color = wham_health_color( $score );
-				$icon  = $health_icons[ $score ] ?? '';
+				$score  = $health_scores[ $key ] ?? 'green';
+				$bg     = wham_health_bg( $score );
+				$color  = wham_health_color( $score );
+				$status = $health_status_text[ $score ] ?? 'OK';
 			?>
 				<td class="health-card" style="background-color: <?php echo $bg; ?>;">
-					<div class="health-card-status" style="color: <?php echo $color; ?>;"><?php echo $icon; ?></div>
+					<div class="health-card-status" style="color: <?php echo $color; ?>;"><?php echo $status; ?></div>
 					<div class="health-card-label" style="color: <?php echo $color; ?>;"><?php echo esc_html( $label ); ?></div>
 				</td>
 			<?php endforeach; ?>
@@ -544,7 +556,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 			<?php foreach ( array_slice( $wins, 0, 3 ) as $win ) : ?>
 				<tr>
 					<td style="width:18px;vertical-align:top;padding:4px 8px 4px 0;">
-						<span style="display:inline-block;width:10px;height:10px;background-color:#16a34a;border-radius:50;">&nbsp;</span>
+						<span style="display:inline-block;width:10px;height:10px;background-color:#059669;border-radius:50;">&nbsp;</span>
 					</td>
 					<td style="font-size:10pt;padding:3px 0;color:#2d3748;"><?php echo esc_html( $win ); ?></td>
 				</tr>
@@ -579,7 +591,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 
 <!-- Footer -->
 <div class="footer-bar">
-	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear Phosphor &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
+	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
 </div>
 
 <div style="page-break-after: always;"></div>
@@ -633,11 +645,11 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 					<div class="metric-label">Avg Position</div>
 					<?php if ( $prev_position ) : ?>
 						<?php
-						$pos_change    = $prev_position - $gsc_position;
-						$pos_color     = $pos_change >= 0 ? '#16a34a' : '#dc2626';
-						$pos_arrow     = $pos_change >= 0 ? '&#9650;' : '&#9660;';
+						$pos_change  = $prev_position - $gsc_position;
+						$pos_color   = $pos_change >= 0 ? '#059669' : '#dc2626';
+						$pos_prefix  = $pos_change >= 0 ? '+' : '-';
 						?>
-						<div class="metric-change"><span style="font-size:8pt;color:<?php echo $pos_color; ?>;font-weight:bold;"><?php echo $pos_arrow; ?> <?php echo abs( round( $pos_change, 1 ) ); ?></span> vs prior</div>
+						<div class="metric-change"><span style="font-size:8pt;color:<?php echo $pos_color; ?>;font-weight:bold;"><?php echo $pos_prefix . abs( round( $pos_change, 1 ) ); ?></span> vs prior</div>
 					<?php endif; ?>
 				</td>
 			</tr>
@@ -645,9 +657,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 
 		<!-- GSC Trend Chart -->
 		<?php if ( ! empty( $charts['gsc_trend'] ) ) : ?>
-			<div class="chart-wrap">
-				<img src="file://<?php echo $charts['gsc_trend']; ?>" style="width:100%;max-width:520px;">
-			</div>
+			<?php echo wham_chart_img( $charts['gsc_trend'] ); ?>
 		<?php endif; ?>
 
 		<!-- Top Queries Table -->
@@ -703,7 +713,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 
 <!-- Footer -->
 <div class="footer-bar">
-	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear Phosphor &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
+	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
 </div>
 
 <!-- ============================================================ -->
@@ -750,10 +760,10 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 						<?php
 						// For bounce rate, lower is better — invert the color logic.
 						$bounce_change = round( ( ( $ga4_bounce - $ga4_prev_bounce ) / $ga4_prev_bounce ) * 100, 1 );
-						$bounce_color  = $bounce_change <= 0 ? '#16a34a' : '#dc2626';
-						$bounce_arrow  = $bounce_change <= 0 ? '&#9660;' : '&#9650;';
+						$bounce_color  = $bounce_change <= 0 ? '#059669' : '#dc2626';
+						$bounce_prefix = $bounce_change <= 0 ? '-' : '+';
 						?>
-						<div class="metric-change"><span style="font-size:8pt;color:<?php echo $bounce_color; ?>;font-weight:bold;"><?php echo $bounce_arrow; ?> <?php echo abs( $bounce_change ); ?>%</span> vs prior</div>
+						<div class="metric-change"><span style="font-size:8pt;color:<?php echo $bounce_color; ?>;font-weight:bold;"><?php echo $bounce_prefix . abs( $bounce_change ); ?>%</span> vs prior</div>
 					<?php endif; ?>
 				</td>
 			</tr>
@@ -762,17 +772,13 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 		<!-- Traffic Sources Chart -->
 		<?php if ( ! empty( $charts['ga4_sources'] ) ) : ?>
 			<div style="font-size:9pt;font-weight:bold;color:#1a2332;margin-bottom:6px;">Traffic Sources</div>
-			<div class="chart-wrap">
-				<img src="file://<?php echo $charts['ga4_sources']; ?>" style="width:100%;max-width:520px;">
-			</div>
+			<?php echo wham_chart_img( $charts['ga4_sources'] ); ?>
 		<?php endif; ?>
 
 		<!-- Sessions Trend Chart -->
 		<?php if ( ! empty( $charts['ga4_trend'] ) ) : ?>
 			<div style="font-size:9pt;font-weight:bold;color:#1a2332;margin-bottom:6px;">Sessions Trend</div>
-			<div class="chart-wrap">
-				<img src="file://<?php echo $charts['ga4_trend']; ?>" style="width:100%;max-width:520px;">
-			</div>
+			<?php echo wham_chart_img( $charts['ga4_trend'] ); ?>
 		<?php endif; ?>
 
 		<!-- Top Landing Pages Table -->
@@ -800,7 +806,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 
 <!-- Footer -->
 <div class="footer-bar">
-	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear Phosphor &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
+	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
 </div>
 
 <!-- ============================================================ -->
@@ -853,8 +859,8 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 					</tr>
 				</thead>
 				<tbody>
-					<?php foreach ( $plugins_needing as $i => $plugin ) : ?>
-						<tr<?php echo $i % 2 ? ' class="alt"' : ''; ?>>
+					<?php $i = 0; foreach ( $plugins_needing as $plugin ) : ?>
+						<tr<?php echo $i++ % 2 ? ' class="alt"' : ''; ?>>
 							<td><?php echo esc_html( $plugin['name'] ?? $plugin['plugin'] ?? '' ); ?></td>
 							<td style="text-align:right;"><?php echo esc_html( $plugin['current_version'] ?? $plugin['version'] ?? '—' ); ?></td>
 							<td style="text-align:right;"><?php echo esc_html( $plugin['new_version'] ?? '—' ); ?></td>
@@ -898,9 +904,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 
 		<!-- Dev Hours Doughnut Chart -->
 		<?php if ( ! empty( $charts['dev_hours'] ) ) : ?>
-			<div class="chart-wrap">
-				<img src="file://<?php echo $charts['dev_hours']; ?>" style="width:100%;max-width:240px;">
-			</div>
+			<?php echo wham_chart_img( $charts['dev_hours'], '240px' ); ?>
 		<?php endif; ?>
 
 		<!-- Progress Bar (table-based) -->
@@ -927,7 +931,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 
 <!-- Footer -->
 <div class="footer-bar">
-	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear Phosphor &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
+	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
 </div>
 
 <!-- ============================================================ -->
@@ -957,7 +961,7 @@ if ( ! function_exists( 'wham_health_bg' ) ) {
 
 <!-- Footer -->
 <div class="footer-bar">
-	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear Phosphor &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
+	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
 </div>
 
 <?php endif; ?>

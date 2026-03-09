@@ -121,7 +121,7 @@ $tier_label    = ucfirst( $tier ?: 'Basic' );
                 Questions about your report? Just reply to this email.
             </p>
             <p style="font-size:11px; color:#bbb; margin:0;">
-                WHAM — Web Hosting &amp; Maintenance by Clear Phosphor
+                WHAM — Web Hosting &amp; Maintenance by Clear pH
                 <br>
                 <?php echo esc_html( $tier_label ); ?> Plan &nbsp;·&nbsp; <?php echo esc_html( $period_label ); ?>
             </p>

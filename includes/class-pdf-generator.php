@@ -112,6 +112,8 @@ class PDF_Generator {
 
             if ( class_exists( '\\Dompdf\\Dompdf' ) ) {
                 try {
+                    $this->log( 'DomPDF: Starting render (' . strlen( $html ) . ' bytes HTML).' );
+
                     $dompdf = new \Dompdf\Dompdf([
                         'isRemoteEnabled'    => true,
                         'defaultFont'        => 'sans-serif',
@@ -124,9 +126,11 @@ class PDF_Generator {
                     $dompdf->setPaper( 'letter', 'portrait' );
                     $dompdf->render();
 
-                    return $dompdf->output();
-                } catch ( \Exception $e ) {
-                    $this->log( 'DomPDF error: ' . $e->getMessage() );
+                    $output = $dompdf->output();
+                    $this->log( 'DomPDF: Success (' . strlen( $output ) . ' bytes PDF).' );
+                    return $output;
+                } catch ( \Throwable $e ) {
+                    $this->log( 'DomPDF error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() );
                 }
             }
         }
@@ -190,6 +194,8 @@ class PDF_Generator {
     }
 
     private function log( string $message ): void {
+        $log_file = ( defined( 'WHAM_REPORTS_PATH' ) ? WHAM_REPORTS_PATH : __DIR__ . '/../' ) . 'pdf-debug.log';
+        file_put_contents( $log_file, '[' . date( 'Y-m-d H:i:s' ) . '] ' . $message . "\n", FILE_APPEND );
         if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
             error_log( '[WHAM PDF] ' . $message );
         }

@@ -34,7 +34,7 @@ Each source class has a `collect()` method returning a normalized array:
 
 | Class | Source | Report Category | API |
 |-------|--------|----------------|-----|
-| `MainWP_Source` | MainWP | Updates & Maintenance | Direct DB (`wp_mainwp_wp` table) or REST API fallback |
+| `MainWP_Source` | MainWP | Updates & Maintenance | Direct DB (3-table JOIN: `mainwp_wp` + `mainwp_wp_sync` + `mainwp_wp_options`) or REST API fallback |
 | `GSC_Source` | Google Search Console | SEO (Search) | Search Analytics API via service account JWT |
 | `GA4_Source` | Google Analytics 4 | SEO (Analytics) | GA4 Data API v1 via service account JWT |
 | `Monday_Source` | Monday.com | Dev Hours | GraphQL API (board `9141194124`) |
@@ -55,7 +55,7 @@ Each source class has a `collect()` method returning a normalized array:
 
 - `Insights_Engine` — auto-generates wins, watch items, recommendations, and health scores (green/amber/red) from metric thresholds
 - `Chart_Generator` — generates PNG chart images via QuickChart.io API, caches in `wp-content/uploads/wham-reports/charts/`
-- `GitHub_Updater` — checks `dbreck/wham-reports` GitHub releases for plugin updates; hooks into WP update system
+- `GitHub_Updater` — AJAX-based update checker; prefers `wham-reports.zip` release asset over zipball; inline update UI on plugins page
 
 ### Templates
 
@@ -110,13 +110,22 @@ The mapping page is the most complex admin template. Key architecture:
 
 ## GitHub Repo & Updates
 
-- **Repo:** `github.com/dbreck/wham-reports` (private)
+- **Repo:** `github.com/dbreck/wham-reports` (public)
 - **Branch:** `master`
-- **Releases:** Tag with `gh release create vX.Y.Z` — the plugin's GitHub_Updater class checks releases automatically
-- **Token:** Production needs a GitHub PAT (fine-grained, Contents: Read) stored in Settings or `wp-config.php`
+- **Release flow:** `./build-release.sh` creates `wham-reports.zip` → `gh release create vX.Y.Z wham-reports.zip --title "vX.Y.Z"`
+- **Important:** Always attach `wham-reports.zip` as release asset — GitHub's auto-generated zipball names it `wham-reports-X.Y.Z.zip` which installs as a separate plugin
 
 ## Deployment
 
 Two methods:
-1. **GitHub releases** (preferred): push + create release, then "Check for updates" on plugins page
+1. **GitHub releases** (preferred): `./build-release.sh` + push + `gh release create vX.Y.Z wham-reports.zip` → "Check for updates" on plugins page (AJAX, no redirect)
 2. **SSH direct** (fallback): `ssh -T -i ~/.ssh/flywheel_clearph team+clearph+wham@ssh.getflywheel.com "cat > /www/wp-content/plugins/wham-reports/path/to/file.php" < local/path/to/file.php`
+
+## MainWP Database Schema
+
+Data spans 3 tables (Flywheel prefix: `wp_kdqwvtlbbw_`):
+- **`mainwp_wp`** — `id, name, url, plugins (JSON array), themes (JSON array), plugin_upgrades (JSON object keyed by slug), theme_upgrades (JSON)`
+- **`mainwp_wp_sync`** — `wpid, version (WP version), dtsSync (unix timestamp)`
+- **`mainwp_wp_options`** — per-site key/value pairs: `phpversion`, `site_info` (JSON)
+- All data is JSON, not PHP serialized — use `json_decode()` not `maybe_unserialize()`
+- `plugin_upgrades` keys are slugs like `plugin-dir/plugin-file.php` — never use as numeric index

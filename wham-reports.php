@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WHAM Reports
  * Description: Automated monthly reporting for WHAM (Web Hosting And Maintenance) clients. Collects data from MainWP, Google Search Console, GA4, and Monday.com to generate PDF reports and a client dashboard.
- * Version: 2.1.0
+ * Version: 2.2.0
  * Author: Clear ph Design
  * Text Domain: wham-reports
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WHAM_REPORTS_VERSION', '2.1.0' );
+define( 'WHAM_REPORTS_VERSION', '2.2.0' );
 define( 'WHAM_REPORTS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WHAM_REPORTS_URL', plugin_dir_url( __FILE__ ) );
 define( 'WHAM_REPORTS_MONDAY_BOARD_ID', '9141194124' );
@@ -63,9 +63,9 @@ final class WHAM_Reports {
         // GitHub updater.
         new \WHAM_Reports\GitHub_Updater();
 
-        // Plugin row meta — "Check for updates" link.
+        // Plugin row meta — "Check for updates" AJAX link.
         add_filter( 'plugin_row_meta', [ $this, 'plugin_row_meta' ], 10, 2 );
-        add_action( 'admin_post_wham_check_updates', [ $this, 'handle_check_updates' ] );
+        add_action( 'admin_enqueue_scripts', [ $this, 'updater_inline_script' ] );
 
         // Dashboard shortcode.
         add_shortcode( 'wham_dashboard', [ $this, 'render_dashboard_shortcode' ] );
@@ -313,29 +313,78 @@ final class WHAM_Reports {
      */
     public function plugin_row_meta( array $meta, string $plugin_file ): array {
         if ( plugin_basename( __FILE__ ) === $plugin_file ) {
-            $url = wp_nonce_url( admin_url( 'admin-post.php?action=wham_check_updates' ), 'wham_check_updates' );
-            $meta[] = '<a href="' . esc_url( $url ) . '">Check for updates</a>';
+            $meta[] = '<a href="#" id="wham-check-updates" onclick="whamCheckUpdates(event)">Check for updates</a>';
         }
         return $meta;
     }
 
     /**
-     * Handle "Check for updates" — flush GitHub cache and redirect back to plugins page.
+     * Enqueue inline JS for the AJAX "Check for updates" link on plugins page.
      */
-    public function handle_check_updates(): void {
-        check_admin_referer( 'wham_check_updates' );
-
-        if ( ! current_user_can( 'update_plugins' ) ) {
-            wp_die( 'Unauthorized' );
+    public function updater_inline_script( string $hook ): void {
+        if ( 'plugins.php' !== $hook ) {
+            return;
         }
 
-        \WHAM_Reports\GitHub_Updater::flush_cache();
+        $nonce = wp_create_nonce( 'wham_check_updates' );
+        $ajax_url = admin_url( 'admin-ajax.php' );
+        $plugin_file = 'wham-reports/wham-reports.php';
 
-        // Force WordPress to re-check plugin updates now.
-        wp_clean_plugins_cache( true );
+        wp_add_inline_script( 'jquery-core', "
+            function whamCheckUpdates(e) {
+                e.preventDefault();
+                var link = document.getElementById('wham-check-updates');
+                var origText = link.textContent;
+                link.textContent = 'Checking…';
+                link.style.pointerEvents = 'none';
 
-        wp_safe_redirect( self_admin_url( 'plugins.php?s=wham&plugin_status=all' ) );
-        exit;
+                fetch('{$ajax_url}?action=wham_check_updates&nonce={$nonce}')
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.success && res.data.has_update) {
+                            link.textContent = origText;
+                            link.style.pointerEvents = '';
+                            whamShowUpdateRow(res.data);
+                        } else if (res.success) {
+                            link.textContent = 'Up to date (v' + res.data.current_version + ')';
+                            setTimeout(function() {
+                                link.textContent = origText;
+                                link.style.pointerEvents = '';
+                            }, 4000);
+                        } else {
+                            link.textContent = 'Error: ' + (res.data || 'Unknown');
+                            link.style.pointerEvents = '';
+                        }
+                    })
+                    .catch(function() {
+                        link.textContent = 'Network error';
+                        link.style.pointerEvents = '';
+                    });
+            }
+
+            function whamShowUpdateRow(data) {
+                var pluginRow = document.querySelector('tr[data-plugin=\"{$plugin_file}\"]');
+                if (!pluginRow) return;
+
+                // Remove any existing update row.
+                var existing = document.getElementById('wham-update-row');
+                if (existing) existing.remove();
+
+                var colspan = pluginRow.querySelectorAll('td, th').length;
+                var tr = document.createElement('tr');
+                tr.id = 'wham-update-row';
+                tr.className = 'plugin-update-tr active';
+                tr.innerHTML = '<td colspan=\"' + colspan + '\" class=\"plugin-update colspanchange\">' +
+                    '<div class=\"update-message notice inline notice-warning notice-alt\"><p>' +
+                    'There is a new version of <strong>WHAM Reports</strong> available. ' +
+                    '<a href=\"' + data.details_url + '\" target=\"_blank\">View v' + data.latest_version + ' details</a> or ' +
+                    '<a href=\"' + data.update_url + '\" class=\"update-link\">update now</a>.' +
+                    '</p></div></td>';
+
+                pluginRow.classList.add('update');
+                pluginRow.after(tr);
+            }
+        " );
     }
 
     public function admin_assets( string $hook ): void {
@@ -504,7 +553,10 @@ final class WHAM_Reports {
         $period    = isset( $_POST['wham_report_period'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_report_period'] ) ) : '';
         $client_id = isset( $_POST['wham_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_client_id'] ) ) : '';
 
+        // Buffer any stray output so wp_redirect headers aren't blocked.
+        ob_start();
         $this->run_report_generation( $period, $client_id );
+        ob_end_clean();
 
         $redirect = admin_url( 'admin.php?page=wham-reports&generated=' . ( $client_id ? 'single' : '1' ) );
         wp_redirect( $redirect );
@@ -527,7 +579,10 @@ final class WHAM_Reports {
         require_once WHAM_REPORTS_PATH . 'includes/class-data-collector.php';
 
         $collector = new \WHAM_Reports\Data_Collector();
+
+        ob_start();
         $collector->generate_single_report( $client_id, $period );
+        ob_end_clean();
 
         wp_redirect( admin_url( 'admin.php?page=wham-reports&generated=single' ) );
         exit;

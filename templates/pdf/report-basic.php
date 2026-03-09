@@ -39,12 +39,12 @@ $exec_summary   = $insights['executive_summary'] ?? '';
 
 // Helper: map score to colors.
 $color_map = [
-	'green' => [ 'bg' => '#f0fdf4', 'dot' => '#16a34a', 'border' => '#bbf7d0' ],
+	'green' => [ 'bg' => '#f0fdf4', 'dot' => '#059669', 'border' => '#bbf7d0' ],
 	'amber' => [ 'bg' => '#fffbeb', 'dot' => '#d97706', 'border' => '#fde68a' ],
 	'red'   => [ 'bg' => '#fee2e2', 'dot' => '#dc2626', 'border' => '#fecaca' ],
 ];
 $banner_map = [
-	'green' => [ 'bg' => '#16a34a', 'label' => 'EXCELLENT' ],
+	'green' => [ 'bg' => '#059669', 'label' => 'EXCELLENT' ],
 	'amber' => [ 'bg' => '#d97706', 'label' => 'GOOD' ],
 	'red'   => [ 'bg' => '#dc2626', 'label' => 'NEEDS ATTENTION' ],
 ];
@@ -78,8 +78,8 @@ if ( null === $clicks ) {
 } else {
 	$search_metric = number_format( $clicks );
 	if ( null !== $clicks_change && $clicks_change != 0 ) {
-		$arrow         = $clicks_change > 0 ? "\xE2\x86\x91" : "\xE2\x86\x93";
-		$search_status = $search_metric . ' clicks ' . $arrow . abs( round( $clicks_change ) ) . '%';
+		$prefix        = $clicks_change > 0 ? '+' : '-';
+		$search_status = $search_metric . ' clicks (' . $prefix . abs( round( $clicks_change ) ) . '%)';
 	} else {
 		$search_status = $search_metric . ' clicks';
 	}
@@ -419,15 +419,7 @@ $banner_label = $banner_map[ $overall_health ]['label'] ?? 'EXCELLENT';
                     </table>
                     <div class="card-status"><?php echo esc_html( $overall_label ); ?></div>
                     <div class="card-metric" style="color: <?php echo $overall_colors['dot']; ?>;">
-                        <?php
-                        if ( 'green' === $overall_health ) {
-                            echo "\xE2\x9C\x93"; // checkmark
-                        } elseif ( 'amber' === $overall_health ) {
-                            echo '!';
-                        } else {
-                            echo "\xE2\x9C\x97"; // X mark
-                        }
-                        ?>
+                        <?php echo esc_html( $overall_label ); ?>
                     </div>
                 </td>
             </tr>
@@ -444,7 +436,7 @@ $banner_label = $banner_map[ $overall_health ]['label'] ?? 'EXCELLENT';
 
     <!-- Footer -->
     <div class="footer-bar">
-        <span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear Phosphor &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
+        <span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
         <br>Questions? Contact us at support@clearph.com
     </div>
 
