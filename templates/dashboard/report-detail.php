@@ -85,7 +85,6 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 				'security'  => 'Security',
 				'seo'       => 'SEO',
 				'traffic'   => 'Traffic',
-				'dev_hours' => 'Dev Hours',
 			];
 			$score_status = [
 				'green' => 'Healthy',
@@ -141,8 +140,13 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 				<span class="wham-metric-val"><?php echo esc_html( $maintenance['wp_version'] ?? 'N/A' ); ?></span>
 				<span class="wham-metric-lbl">WordPress</span>
 			</div>
+			<?php
+				$p_total   = (int) ( $maintenance['plugins_total'] ?? 0 );
+				$p_pending = (int) ( $maintenance['plugins_updates_count'] ?? 0 );
+				$p_updated = $p_total - $p_pending;
+			?>
 			<div class="wham-metric wham-metric-green">
-				<span class="wham-metric-val"><?php echo esc_html( ( $maintenance['plugins_updated'] ?? 0 ) . '/' . ( $maintenance['plugins_total'] ?? 0 ) ); ?></span>
+				<span class="wham-metric-val"><?php echo esc_html( $p_updated . '/' . $p_total ); ?></span>
 				<span class="wham-metric-lbl">Plugins Updated</span>
 			</div>
 			<div class="wham-metric wham-metric-purple">
@@ -186,7 +190,14 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	<?php
 	$search_source = $search['source'] ?? '';
 	if ( $search_source !== 'skipped' && $search_source !== 'not_configured' ) :
-		$prev_search = $search['previous_period'] ?? [];
+		// GSC stores comparison data under 'comparison' with prev_ prefixed keys.
+		$search_comp = $search['comparison'] ?? [];
+		$prev_search = [
+			'clicks'      => $search_comp['prev_clicks'] ?? null,
+			'impressions' => $search_comp['prev_impressions'] ?? null,
+			'ctr'         => $search_comp['prev_ctr'] ?? null,
+			'position'    => $search_comp['prev_position'] ?? null,
+		];
 	?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
@@ -219,11 +230,10 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 			</div>
 		</div>
 
-		<?php
-		$gsc_chart_url = $chart_to_url( $charts['gsc_trend'] ?? '' );
-		if ( $gsc_chart_url ) : ?>
+		<?php if ( ! empty( $search['daily_labels'] ) ) : ?>
+		<h4>Search Trend</h4>
 		<div class="wham-chart-wrap">
-			<img src="<?php echo esc_url( $gsc_chart_url ); ?>" alt="Search performance trend" class="wham-chart-img">
+			<canvas id="wham-gsc-trend" height="280"></canvas>
 		</div>
 		<?php endif; ?>
 
@@ -272,7 +282,13 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	<?php
 	$analytics_source = $analytics['source'] ?? '';
 	if ( $analytics_source !== 'skipped' && $analytics_source !== 'error' ) :
-		$prev_analytics = $analytics['previous_period'] ?? [];
+		// GA4 stores previous period data as flat keys (previous_sessions, etc.).
+		$prev_analytics = [
+			'sessions'    => $analytics['previous_sessions'] ?? null,
+			'users'       => $analytics['previous_users'] ?? null,
+			'pageviews'   => $analytics['previous_pageviews'] ?? null,
+			'bounce_rate' => $analytics['previous_bounce_rate'] ?? null,
+		];
 	?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
@@ -302,31 +318,20 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 			</div>
 		</div>
 
-		<?php
-		$ga4_sources_url = $chart_to_url( $charts['ga4_sources'] ?? '' );
-		$ga4_trend_url = $chart_to_url( $charts['ga4_trend'] ?? '' );
-		if ( $ga4_sources_url ) : ?>
-		<div class="wham-chart-wrap">
-			<img src="<?php echo esc_url( $ga4_sources_url ); ?>" alt="Traffic sources" class="wham-chart-img">
-		</div>
-		<?php endif; ?>
-		<?php if ( $ga4_trend_url ) : ?>
-		<div class="wham-chart-wrap">
-			<img src="<?php echo esc_url( $ga4_trend_url ); ?>" alt="Sessions trend" class="wham-chart-img">
-		</div>
-		<?php endif; ?>
-
 		<?php if ( ! empty( $analytics['traffic_sources'] ) ) : ?>
 		<h4>Traffic Sources</h4>
+		<div class="wham-chart-wrap">
+			<canvas id="wham-ga4-sources" height="280"></canvas>
+		</div>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
 				<thead><tr><th>Source</th><th>Sessions</th><th>Users</th></tr></thead>
 				<tbody>
 				<?php foreach ( array_slice( $analytics['traffic_sources'], 0, 8 ) as $src ) : ?>
 					<tr>
-						<td><?php echo esc_html( $src['source'] ?? $src['channel'] ?? '' ); ?></td>
-						<td><?php echo esc_html( number_format( $src['sessions'] ?? 0 ) ); ?></td>
-						<td><?php echo esc_html( number_format( $src['users'] ?? 0 ) ); ?></td>
+						<td><?php echo esc_html( $src['source'] ?? $src['channel'] ?? $src['sessionDefaultChannelGroup'] ?? '' ); ?></td>
+						<td><?php echo esc_html( number_format( $src['sessions'] ?? $src['metric_0'] ?? 0 ) ); ?></td>
+						<td><?php echo esc_html( number_format( $src['users'] ?? $src['metric_1'] ?? 0 ) ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>
@@ -334,17 +339,35 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 		</div>
 		<?php endif; ?>
 
-		<?php if ( ! empty( $analytics['top_pages'] ) ) : ?>
+		<?php if ( ! empty( $analytics['daily_labels'] ) ) : ?>
+		<h4>Sessions &amp; Users Trend</h4>
+		<div class="wham-chart-wrap">
+			<canvas id="wham-ga4-trend" height="280"></canvas>
+		</div>
+		<?php endif; ?>
+
+		<?php
+		$landing_pages = $analytics['top_pages'] ?? $analytics['top_landing_pages'] ?? [];
+		if ( ! empty( $landing_pages ) ) : ?>
 		<h4>Top Landing Pages</h4>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
-				<thead><tr><th>Page</th><th>Views</th><th>Sessions</th></tr></thead>
+				<thead><tr><th>Page</th><th>Sessions</th><th>Users</th></tr></thead>
 				<tbody>
-				<?php foreach ( array_slice( $analytics['top_pages'], 0, 8 ) as $pg ) : ?>
+				<?php foreach ( array_slice( $landing_pages, 0, 8 ) as $pg ) : ?>
 					<tr>
-						<td class="wham-td-query"><?php echo esc_html( $pg['page'] ?? $pg['path'] ?? '' ); ?></td>
-						<td><?php echo esc_html( number_format( $pg['views'] ?? $pg['pageviews'] ?? 0 ) ); ?></td>
-						<td><?php echo esc_html( number_format( $pg['sessions'] ?? 0 ) ); ?></td>
+						<?php
+						$page_path = $pg['page'] ?? $pg['path'] ?? $pg['landingPagePlusQueryString'] ?? '';
+						// Strip domain to show just the path.
+						if ( strpos( $page_path, 'http' ) === 0 ) {
+							$page_path = parse_url( $page_path, PHP_URL_PATH ) ?: $page_path;
+						}
+						// Show "/" as "Home" for readability.
+						if ( $page_path === '/' ) $page_path = 'Home';
+						?>
+						<td class="wham-td-query"><?php echo esc_html( $page_path ); ?></td>
+						<td><?php echo esc_html( number_format( $pg['sessions'] ?? $pg['metric_0'] ?? 0 ) ); ?></td>
+						<td><?php echo esc_html( number_format( $pg['users'] ?? $pg['metric_1'] ?? 0 ) ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>
@@ -353,69 +376,6 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 		<?php endif; ?>
 	</div>
 	<?php endif; ?>
-
-	<!-- Dev Hours Section -->
-	<div class="wham-dash-section">
-		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a2332" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-			<h3>Development Hours</h3>
-		</div>
-		<?php if ( ! empty( $dev_hours['error'] ) ) : ?>
-			<p class="wham-dash-muted"><?php echo esc_html( $dev_hours['error'] ); ?></p>
-		<?php else : ?>
-		<?php
-			$hrs_incl = $dev_hours['hours_included'] ?? 0;
-			$hrs_used = $dev_hours['hours_used'] ?? 0;
-			$hrs_rem  = $dev_hours['hours_remaining'] ?? 0;
-			$pct      = $hrs_incl > 0 ? min( 100, round( ( $hrs_used / $hrs_incl ) * 100 ) ) : 0;
-
-			// Color coding: green < 60%, amber 60-85%, red > 85%.
-			$bar_class = 'wham-bar-green';
-			if ( $pct >= 85 ) {
-				$bar_class = 'wham-bar-red';
-			} elseif ( $pct >= 60 ) {
-				$bar_class = 'wham-bar-amber';
-			}
-		?>
-		<div class="wham-hours-display">
-			<div class="wham-hours-stats">
-				<div class="wham-hours-stat">
-					<span class="wham-hours-stat-val"><?php echo esc_html( $hrs_used ); ?></span>
-					<span class="wham-hours-stat-lbl">Used</span>
-				</div>
-				<div class="wham-hours-stat">
-					<span class="wham-hours-stat-val"><?php echo esc_html( $hrs_incl ); ?></span>
-					<span class="wham-hours-stat-lbl">Included</span>
-				</div>
-				<div class="wham-hours-stat">
-					<span class="wham-hours-stat-val"><?php echo esc_html( $hrs_rem ); ?></span>
-					<span class="wham-hours-stat-lbl">Remaining</span>
-				</div>
-			</div>
-			<div class="wham-hours-bar-wrap">
-				<div class="wham-hours-bar">
-					<div class="wham-hours-fill <?php echo esc_attr( $bar_class ); ?>" style="width:<?php echo intval( $pct ); ?>%;"></div>
-				</div>
-				<span class="wham-hours-pct"><?php echo esc_html( $pct ); ?>% used</span>
-			</div>
-		</div>
-
-		<?php
-		$hours_chart_url = $chart_to_url( $charts['dev_hours'] ?? '' );
-		if ( $hours_chart_url ) : ?>
-		<div class="wham-chart-wrap">
-			<img src="<?php echo esc_url( $hours_chart_url ); ?>" alt="Hours breakdown" class="wham-chart-img" style="max-width:300px;">
-		</div>
-		<?php endif; ?>
-
-		<?php if ( $dev_hours['work_summary'] ?? '' ) : ?>
-			<div class="wham-work-summary">
-				<strong>Work performed:</strong>
-				<?php echo esc_html( $dev_hours['work_summary'] ); ?>
-			</div>
-		<?php endif; ?>
-		<?php endif; ?>
-	</div>
 
 	<!-- Recommendations -->
 	<?php if ( ! empty( $insights['recommendations'] ) ) : ?>
@@ -438,5 +398,85 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 		<?php endforeach; ?>
 	</div>
 	<?php endif; ?>
+
+	<!-- Chart.js initialization -->
+	<script>
+	document.addEventListener('DOMContentLoaded', function() {
+		// GSC Trend
+		(function() {
+			var el = document.getElementById('wham-gsc-trend');
+			if (!el) return;
+			new Chart(el, {
+				type: 'line',
+				data: {
+					labels: <?php echo wp_json_encode( $search['daily_labels'] ?? [] ); ?>,
+					datasets: [
+						{ label: 'Clicks', data: <?php echo wp_json_encode( $search['daily_clicks'] ?? [] ); ?>, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 },
+						{ label: 'Impressions', data: <?php echo wp_json_encode( $search['daily_impressions'] ?? [] ); ?>, borderColor: '#16a34a', backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 }
+					]
+				},
+				options: {
+					responsive: true,
+					interaction: { intersect: false, mode: 'index' },
+					plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } },
+					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } } }
+				}
+			});
+		})();
+
+		// GA4 Traffic Sources
+		(function() {
+			var el = document.getElementById('wham-ga4-sources');
+			if (!el) return;
+			<?php
+			$source_labels = [];
+			$source_values = [];
+			if ( ! empty( $analytics['traffic_sources'] ) ) {
+				foreach ( array_slice( $analytics['traffic_sources'], 0, 8 ) as $src ) {
+					$source_labels[] = $src['source'] ?? $src['channel'] ?? $src['sessionDefaultChannelGroup'] ?? '';
+					$source_values[] = $src['sessions'] ?? $src['metric_0'] ?? 0;
+				}
+			}
+			?>
+			new Chart(el, {
+				type: 'bar',
+				data: {
+					labels: <?php echo wp_json_encode( $source_labels ); ?>,
+					datasets: [{
+						data: <?php echo wp_json_encode( $source_values ); ?>,
+						backgroundColor: ['#3b82f6','#16a34a','#d97706','#dc2626','#7c3aed','#8899aa','#3b82f6','#16a34a']
+					}]
+				},
+				options: {
+					responsive: true,
+					plugins: { legend: { display: false } },
+					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false } } }
+				}
+			});
+		})();
+
+		// GA4 Sessions & Users Trend
+		(function() {
+			var el = document.getElementById('wham-ga4-trend');
+			if (!el) return;
+			new Chart(el, {
+				type: 'line',
+				data: {
+					labels: <?php echo wp_json_encode( $analytics['daily_labels'] ?? [] ); ?>,
+					datasets: [
+						{ label: 'Sessions', data: <?php echo wp_json_encode( $analytics['daily_sessions'] ?? [] ); ?>, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 },
+						{ label: 'Users', data: <?php echo wp_json_encode( $analytics['daily_users'] ?? [] ); ?>, borderColor: '#16a34a', backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 }
+					]
+				},
+				options: {
+					responsive: true,
+					interaction: { intersect: false, mode: 'index' },
+					plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } },
+					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } } }
+				}
+			});
+		})();
+	});
+	</script>
 
 </div>

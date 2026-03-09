@@ -56,9 +56,13 @@ class GSC_Source {
 
         // Previous period comparison (all tiers — needed by Insights Engine).
         $prev = $this->query_search_analytics( $gsc_property, $token, $prev_start, $prev_end );
+        $prev_ctr      = round( ( $prev['ctr'] ?? 0 ) * 100, 2 );
+        $prev_position = round( $prev['position'] ?? 0, 1 );
         $result['comparison'] = [
             'prev_clicks'        => $prev['clicks'] ?? 0,
             'prev_impressions'   => $prev['impressions'] ?? 0,
+            'prev_ctr'           => $prev_ctr,
+            'prev_position'      => $prev_position,
             'clicks_change'      => $this->percent_change( $prev['clicks'] ?? 0, $aggregate['clicks'] ?? 0 ),
             'impressions_change' => $this->percent_change( $prev['impressions'] ?? 0, $aggregate['impressions'] ?? 0 ),
         ];

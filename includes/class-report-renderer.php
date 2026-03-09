@@ -107,6 +107,14 @@ class Report_Renderer {
 			return '<div class="wham-dash-notice">You do not have access to this report.</div>';
 		}
 
+		wp_enqueue_script(
+			'chartjs',
+			'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js',
+			[],
+			'4.4.0',
+			true
+		);
+
 		$report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
 		$pdf_url     = get_post_meta( $report_id, '_wham_pdf_url', true );
 
