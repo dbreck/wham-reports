@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WHAM Reports
  * Description: Automated monthly reporting for WHAM (Web Hosting And Maintenance) clients. Collects data from MainWP, Google Search Console, GA4, and Monday.com to generate PDF reports and a client dashboard.
- * Version: 3.2.0
+ * Version: 3.2.1
  * Author: Clear ph Design
  * Text Domain: wham-reports
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WHAM_REPORTS_VERSION', '3.2.0' );
+define( 'WHAM_REPORTS_VERSION', '3.2.1' );
 define( 'WHAM_REPORTS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WHAM_REPORTS_URL', plugin_dir_url( __FILE__ ) );
 define( 'WHAM_REPORTS_MONDAY_BOARD_ID', '9141194124' );
@@ -329,7 +329,7 @@ final class WHAM_Reports {
             'sanitize_callback' => [ $this, 'sanitize_tier_config' ],
         ] );
 
-        // Granular tier capabilities (v3.2.0+).
+        // Granular tier capabilities (v3.2.1+).
         register_setting( 'wham_reports_settings', 'wham_tier_capabilities', [
             'sanitize_callback' => [ $this, 'sanitize_tier_capabilities' ],
         ] );
