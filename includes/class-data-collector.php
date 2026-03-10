@@ -306,6 +306,19 @@ class Data_Collector {
 
         $subject = "WHAM Report — {$period_label}";
 
+        // Load report data for inline email content.
+        $report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
+
+        // Convert chart file paths to public URLs for email img tags.
+        $chart_urls = [];
+        if ( ! empty( $report_data['charts'] ) ) {
+            foreach ( $report_data['charts'] as $key => $path ) {
+                if ( ! empty( $path ) && file_exists( $path ) ) {
+                    $chart_urls[ $key ] = Chart_Generator::get_chart_url( $path );
+                }
+            }
+        }
+
         // Load email template.
         ob_start();
         include WHAM_REPORTS_PATH . 'templates/email/report-email.php';
@@ -328,11 +341,11 @@ class Data_Collector {
         $sent = wp_mail( $email, $subject, $body, $headers, $attachments );
 
         if ( $sent ) {
-            // Update Monday.com status.
-            $report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
-            $subitem_id  = $report_data['dev_hours']['subitem_id'] ?? '';
-            if ( $subitem_id ) {
-                $this->monday->update_report_status( $subitem_id, 'Sent', date( 'Y-m-d' ) );
+            // Update Monday.com status if subitem exists.
+            if ( ! empty( $report_data['monday']['subitem_id'] ) ) {
+                $this->monday->update_report_status( $report_data['monday']['subitem_id'], 'Sent', date( 'Y-m-d' ) );
+            } elseif ( ! empty( $report_data['dev_hours']['subitem_id'] ) ) {
+                $this->monday->update_report_status( $report_data['dev_hours']['subitem_id'], 'Sent', date( 'Y-m-d' ) );
             }
             $this->log( "Email sent to {$email} for report {$report_id}." );
         } else {

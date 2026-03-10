@@ -99,6 +99,98 @@
             <?php endif; ?>
         </div>
 
+        <!-- Test Email -->
+        <div class="wham-card">
+            <h2>Test Email</h2>
+            <p>Send a test report email to any address. Picks up the full inline data from the selected report.</p>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><label for="wham_test_report">Report</label></th>
+                    <td>
+                        <select id="wham_test_report" style="width:100%;">
+                            <option value="">— Select a report —</option>
+                            <?php
+                            $test_reports = new WP_Query([
+                                'post_type'      => 'wham_report',
+                                'posts_per_page'  => 20,
+                                'orderby'        => 'date',
+                                'order'          => 'DESC',
+                                'post_status'    => 'any',
+                            ]);
+                            while ( $test_reports->have_posts() ) : $test_reports->the_post();
+                                $rname   = get_post_meta( get_the_ID(), '_wham_client_name', true );
+                                $rperiod = get_post_meta( get_the_ID(), '_wham_period', true );
+                                $rtier   = get_post_meta( get_the_ID(), '_wham_tier', true );
+                                printf(
+                                    '<option value="%d">%s — %s (%s)</option>',
+                                    get_the_ID(),
+                                    esc_html( $rname ),
+                                    esc_html( $rperiod ),
+                                    esc_html( $rtier ?: 'basic' )
+                                );
+                            endwhile;
+                            wp_reset_postdata();
+                            ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="wham_test_email">Send to</label></th>
+                    <td>
+                        <input type="email" id="wham_test_email" class="regular-text" placeholder="you@example.com" value="<?php echo esc_attr( wp_get_current_user()->user_email ); ?>">
+                    </td>
+                </tr>
+            </table>
+            <button type="button" id="wham-send-test-email" class="button button-primary" disabled>Send Test Email</button>
+            <span id="wham-test-email-status" style="margin-left:12px;"></span>
+        </div>
+
+        <script>
+        (function(){
+            var btn    = document.getElementById('wham-send-test-email');
+            var sel    = document.getElementById('wham_test_report');
+            var inp    = document.getElementById('wham_test_email');
+            var status = document.getElementById('wham-test-email-status');
+
+            function toggleBtn() {
+                btn.disabled = !sel.value || !inp.value;
+            }
+            sel.addEventListener('change', toggleBtn);
+            inp.addEventListener('input', toggleBtn);
+            toggleBtn();
+
+            btn.addEventListener('click', function(){
+                btn.disabled = true;
+                status.textContent = 'Sending...';
+                status.style.color = '#666';
+
+                var fd = new FormData();
+                fd.append('action', 'wham_test_email');
+                fd.append('nonce', '<?php echo wp_create_nonce( 'wham_test_email' ); ?>');
+                fd.append('report_id', sel.value);
+                fd.append('email', inp.value);
+
+                fetch(ajaxurl, { method: 'POST', body: fd })
+                    .then(function(r){ return r.json(); })
+                    .then(function(r){
+                        if (r.success) {
+                            status.textContent = r.data;
+                            status.style.color = '#059669';
+                        } else {
+                            status.textContent = r.data || 'Error sending email.';
+                            status.style.color = '#dc2626';
+                        }
+                        toggleBtn();
+                    })
+                    .catch(function(){
+                        status.textContent = 'Request failed.';
+                        status.style.color = '#dc2626';
+                        toggleBtn();
+                    });
+            });
+        })();
+        </script>
+
         <!-- Recent Reports -->
         <div class="wham-card wham-card-wide">
             <h2>Recent Reports</h2>

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WHAM Reports
  * Description: Automated monthly reporting for WHAM (Web Hosting And Maintenance) clients. Collects data from MainWP, Google Search Console, GA4, and Monday.com to generate PDF reports and a client dashboard.
- * Version: 3.0.8
+ * Version: 3.1.0
  * Author: Clear ph Design
  * Text Domain: wham-reports
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WHAM_REPORTS_VERSION', '3.0.8' );
+define( 'WHAM_REPORTS_VERSION', '3.1.0' );
 define( 'WHAM_REPORTS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WHAM_REPORTS_URL', plugin_dir_url( __FILE__ ) );
 define( 'WHAM_REPORTS_MONDAY_BOARD_ID', '9141194124' );
@@ -87,6 +87,9 @@ final class WHAM_Reports {
         add_action( 'admin_post_wham_generate_reports', [ $this, 'handle_manual_generate' ] );
         add_action( 'admin_post_wham_generate_single', [ $this, 'handle_single_generate' ] );
         add_action( 'admin_post_wham_approve_report', [ $this, 'handle_approve_report' ] );
+
+        // Test email AJAX.
+        add_action( 'wp_ajax_wham_test_email', [ $this, 'ajax_test_email' ] );
     }
 
     /* ------------------------------------------------------------------
@@ -629,6 +632,81 @@ final class WHAM_Reports {
 
         wp_redirect( admin_url( 'admin.php?page=wham-reports-drafts&approved=1' ) );
         exit;
+    }
+
+    /**
+     * AJAX handler: send a test email for a specific report to a custom address.
+     */
+    public function ajax_test_email(): void {
+        check_ajax_referer( 'wham_test_email', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( 'Unauthorized.' );
+        }
+
+        $report_id = absint( $_POST['report_id'] ?? 0 );
+        $email     = sanitize_email( $_POST['email'] ?? '' );
+
+        if ( ! $report_id || ! $email ) {
+            wp_send_json_error( 'Please select a report and enter a valid email address.' );
+        }
+
+        $post = get_post( $report_id );
+        if ( ! $post || 'wham_report' !== $post->post_type ) {
+            wp_send_json_error( 'Invalid report.' );
+        }
+
+        // Build template variables the same way send_report_email() does.
+        $client_name  = get_post_meta( $report_id, '_wham_client_name', true );
+        $period       = get_post_meta( $report_id, '_wham_period', true );
+        $period_label = date( 'F Y', strtotime( $period . '-01' ) );
+        $pdf_url      = get_post_meta( $report_id, '_wham_pdf_url', true );
+        $tier         = get_post_meta( $report_id, '_wham_tier', true );
+
+        $report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
+
+        // Convert chart file paths to public URLs.
+        $chart_urls = [];
+        if ( ! empty( $report_data['charts'] ) ) {
+            require_once WHAM_REPORTS_PATH . 'includes/class-chart-generator.php';
+            foreach ( $report_data['charts'] as $key => $path ) {
+                if ( ! empty( $path ) && file_exists( $path ) ) {
+                    $chart_urls[ $key ] = \WHAM_Reports\Chart_Generator::get_chart_url( $path );
+                }
+            }
+        }
+
+        // Render email body.
+        ob_start();
+        include WHAM_REPORTS_PATH . 'templates/email/report-email.php';
+        $body = ob_get_clean();
+
+        $sender_name  = get_option( 'wham_sender_name', 'WHAM Reports' );
+        $sender_email = get_option( 'wham_sender_email', get_option( 'admin_email' ) );
+        $subject      = "[TEST] WHAM Report — {$client_name} — {$period_label}";
+
+        $headers = [
+            'Content-Type: text/html; charset=UTF-8',
+            "From: {$sender_name} <{$sender_email}>",
+        ];
+
+        // Attach PDF if available.
+        $attachments = [];
+        if ( $pdf_url ) {
+            $upload_dir = wp_get_upload_dir();
+            $pdf_path   = str_replace( $upload_dir['baseurl'], $upload_dir['basedir'], $pdf_url );
+            if ( file_exists( $pdf_path ) ) {
+                $attachments[] = $pdf_path;
+            }
+        }
+
+        $sent = wp_mail( $email, $subject, $body, $headers, $attachments );
+
+        if ( $sent ) {
+            wp_send_json_success( "Test email sent to {$email}." );
+        } else {
+            wp_send_json_error( 'wp_mail() failed. Check your mail configuration.' );
+        }
     }
 
     /* ------------------------------------------------------------------
