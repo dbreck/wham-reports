@@ -438,11 +438,11 @@
 .wham-dashboard .wham-section-header h3,
 .wham-detail .wham-section-header h3 {
 	font-family: var(--wham-font-body) !important;
-	font-size: 13px !important;
+	font-size: 24px !important;
 	font-weight: 700 !important;
 	color: var(--wham-navy) !important;
-	letter-spacing: 0.06em !important;
-	text-transform: uppercase !important;
+	letter-spacing: 0.02em !important;
+	text-transform: none !important;
 	margin: 0 !important;
 	padding: 0 !important;
 	border: none !important;
@@ -612,17 +612,17 @@
 }
 
 .wham-dash-table th {
-	text-align: left;
+	text-align: left !important;
 	font-family: var(--wham-font-body) !important;
 	font-weight: 600 !important;
-	padding: 10px 12px;
-	background: var(--wham-gray-50);
-	border-bottom: 2px solid var(--wham-gray-300);
-	font-size: 11px !important;
+	padding: 10px 12px !important;
+	background: var(--wham-gray-50) !important;
+	border-bottom: 2px solid var(--wham-gray-300) !important;
+	font-size: 14px !important;
 	text-transform: uppercase !important;
 	letter-spacing: 0.06em !important;
 	color: var(--wham-gray-500) !important;
-	white-space: nowrap;
+	white-space: nowrap !important;
 }
 
 .wham-dash-table td {
