@@ -442,7 +442,7 @@
 	font-weight: 700 !important;
 	color: var(--wham-navy) !important;
 	letter-spacing: 0.02em !important;
-	text-transform: none !important;
+	text-transform: uppercase !important;
 	margin: 0 !important;
 	padding: 0 !important;
 	border: none !important;
