@@ -12,8 +12,8 @@ defined( 'ABSPATH' ) || exit;
  */
 class PDF_Generator {
 
-    /** @var string[] Available style variants for professional/premium tier. */
-    private const STYLES = [ 'editorial', 'modern', 'swiss' ];
+    /** @var string The PDF style for professional/premium tier. */
+    private const STYLE = 'swiss';
 
     /**
      * Generate a PDF report in a specific style and attach it to a wham_report post.
@@ -85,7 +85,7 @@ class PDF_Generator {
     }
 
     /**
-     * Generate all 3 style variants for professional/premium tier reports.
+     * Generate PDF for a report (Swiss style for professional/premium, basic for basic tier).
      *
      * @param array $report_data  The collected report data.
      * @param int   $post_id      The wham_report post ID.
@@ -96,32 +96,17 @@ class PDF_Generator {
         $urls = [];
 
         if ( $tier === 'basic' ) {
-            // Basic tier: single PDF, no style variants.
             $url = $this->generate( $report_data, $post_id );
-            if ( $url ) {
-                update_post_meta( $post_id, '_wham_pdf_url', $url );
-                $urls['default'] = $url;
-            }
-            return $urls;
+        } else {
+            $url = $this->generate( $report_data, $post_id, self::STYLE );
         }
 
-        // Professional/Premium: generate all 3 styles.
-        foreach ( self::STYLES as $style ) {
-            $url = $this->generate( $report_data, $post_id, $style );
-            if ( $url ) {
-                update_post_meta( $post_id, "_wham_pdf_url_{$style}", $url );
-                $urls[ $style ] = $url;
-                $this->log( "  → {$style} PDF generated: {$url}" );
-            } else {
-                $this->log( "  → {$style} PDF generation failed." );
-            }
-        }
-
-        // Backward compat: _wham_pdf_url points to editorial (first/default).
-        if ( ! empty( $urls['editorial'] ) ) {
-            update_post_meta( $post_id, '_wham_pdf_url', $urls['editorial'] );
-        } elseif ( ! empty( $urls ) ) {
-            update_post_meta( $post_id, '_wham_pdf_url', reset( $urls ) );
+        if ( $url ) {
+            update_post_meta( $post_id, '_wham_pdf_url', $url );
+            $urls['default'] = $url;
+            $this->log( "  → PDF generated: {$url}" );
+        } else {
+            $this->log( '  → PDF generation failed.' );
         }
 
         return $urls;
@@ -133,7 +118,7 @@ class PDF_Generator {
     private function render_template( array $data, string $tier, string $style = '' ): string {
         if ( $tier === 'basic' ) {
             $template_file = 'report-basic.php';
-        } elseif ( $style && in_array( $style, self::STYLES, true ) ) {
+        } elseif ( $style ) {
             $template_file = "report-{$style}.php";
         } else {
             // Fallback to professional template.

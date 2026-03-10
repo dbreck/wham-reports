@@ -33,11 +33,10 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	return '<span class="wham-change ' . $class . '">' . $arrow . ' ' . abs( $pct ) . '%</span>';
 };
 
-// PDF style URLs.
-$pdf_editorial = get_post_meta( $report_post->ID, '_wham_pdf_url_editorial', true );
-$pdf_modern    = get_post_meta( $report_post->ID, '_wham_pdf_url_modern', true );
-$pdf_swiss     = get_post_meta( $report_post->ID, '_wham_pdf_url_swiss', true );
-$has_styles    = $pdf_editorial || $pdf_modern || $pdf_swiss;
+// PDF URL (check Swiss first for backward compat with v3.0.0 reports, then default).
+if ( ! $pdf_url ) {
+	$pdf_url = get_post_meta( $report_post->ID, '_wham_pdf_url_swiss', true );
+}
 ?>
 <div class="wham-dashboard wham-detail">
 
@@ -54,22 +53,7 @@ $has_styles    = $pdf_editorial || $pdf_modern || $pdf_swiss;
 			</p>
 		</div>
 		<div class="wham-detail-header-right">
-			<?php if ( $has_styles ) : ?>
-				<div class="wham-pdf-buttons">
-					<?php if ( $pdf_editorial ) : ?>
-						<a href="<?php echo esc_url( $pdf_editorial ); ?>" class="wham-btn wham-btn-primary wham-btn-sm" target="_blank">
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-							Editorial
-						</a>
-					<?php endif; ?>
-					<?php if ( $pdf_modern ) : ?>
-						<a href="<?php echo esc_url( $pdf_modern ); ?>" class="wham-btn wham-btn-outline wham-btn-sm" target="_blank">Modern</a>
-					<?php endif; ?>
-					<?php if ( $pdf_swiss ) : ?>
-						<a href="<?php echo esc_url( $pdf_swiss ); ?>" class="wham-btn wham-btn-outline wham-btn-sm" target="_blank">Swiss</a>
-					<?php endif; ?>
-				</div>
-			<?php elseif ( $pdf_url ) : ?>
+			<?php if ( $pdf_url ) : ?>
 				<a href="<?php echo esc_url( $pdf_url ); ?>" class="wham-btn wham-btn-primary" target="_blank">
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 					Download PDF

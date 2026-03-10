@@ -13,32 +13,18 @@ if ( $report_id ) :
 	$report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
 	$tier        = $report_data['tier'] ?? 'basic';
 
-	// PDF style URLs.
-	$pdf_editorial = get_post_meta( $report_id, '_wham_pdf_url_editorial', true );
-	$pdf_modern    = get_post_meta( $report_id, '_wham_pdf_url_modern', true );
-	$pdf_swiss     = get_post_meta( $report_id, '_wham_pdf_url_swiss', true );
-	$pdf_url       = get_post_meta( $report_id, '_wham_pdf_url', true );
-	$has_styles    = $pdf_editorial || $pdf_modern || $pdf_swiss;
+	// PDF URL.
+	$pdf_url = get_post_meta( $report_id, '_wham_pdf_url', true );
+	if ( ! $pdf_url ) {
+		$pdf_url = get_post_meta( $report_id, '_wham_pdf_url_swiss', true );
+	}
 ?>
 
 <div class="wrap wham-admin">
 	<h1><?php echo esc_html( $post->post_title ); ?></h1>
 	<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=wham-reports-drafts' ) ); ?>">&larr; Back to Draft List</a></p>
 
-	<?php if ( $has_styles ) : ?>
-		<h3>Preview PDFs</h3>
-		<p>
-			<?php if ( $pdf_editorial ) : ?>
-				<a href="<?php echo esc_url( $pdf_editorial ); ?>" class="button" target="_blank">Editorial PDF</a>
-			<?php endif; ?>
-			<?php if ( $pdf_modern ) : ?>
-				<a href="<?php echo esc_url( $pdf_modern ); ?>" class="button" target="_blank">Modern PDF</a>
-			<?php endif; ?>
-			<?php if ( $pdf_swiss ) : ?>
-				<a href="<?php echo esc_url( $pdf_swiss ); ?>" class="button" target="_blank">Swiss PDF</a>
-			<?php endif; ?>
-		</p>
-	<?php elseif ( $pdf_url ) : ?>
+	<?php if ( $pdf_url ) : ?>
 		<p><a href="<?php echo esc_url( $pdf_url ); ?>" class="button" target="_blank">Preview PDF</a></p>
 	<?php endif; ?>
 

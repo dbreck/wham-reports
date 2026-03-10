@@ -97,10 +97,9 @@ $base_url = get_permalink();
 			$period_year  = $period ? date( 'Y', strtotime( $period . '-01' ) ) : '';
 			$tier         = get_post_meta( $rpt->ID, '_wham_tier', true );
 			$pdf_url      = get_post_meta( $rpt->ID, '_wham_pdf_url', true );
-			$pdf_editorial = get_post_meta( $rpt->ID, '_wham_pdf_url_editorial', true );
-			$pdf_modern    = get_post_meta( $rpt->ID, '_wham_pdf_url_modern', true );
-			$pdf_swiss     = get_post_meta( $rpt->ID, '_wham_pdf_url_swiss', true );
-			$has_styles    = $pdf_editorial || $pdf_modern || $pdf_swiss;
+			if ( ! $pdf_url ) {
+				$pdf_url = get_post_meta( $rpt->ID, '_wham_pdf_url_swiss', true );
+			}
 			$rpt_client   = get_post_meta( $rpt->ID, '_wham_client_name', true );
 			$generated    = get_the_date( 'M j, Y', $rpt );
 			$detail_url   = add_query_arg( 'report', $rpt->ID, $base_url );
@@ -126,17 +125,7 @@ $base_url = get_permalink();
 			<div class="wham-report-generated">Generated <?php echo esc_html( $generated ); ?></div>
 			<div class="wham-report-card-actions">
 				<a href="<?php echo esc_url( $detail_url ); ?>" class="wham-btn wham-btn-primary wham-btn-sm">View Report</a>
-				<?php if ( $has_styles ) : ?>
-					<?php if ( $pdf_editorial ) : ?>
-						<a href="<?php echo esc_url( $pdf_editorial ); ?>" class="wham-btn wham-btn-outline wham-btn-sm" target="_blank" title="Editorial PDF">Ed.</a>
-					<?php endif; ?>
-					<?php if ( $pdf_modern ) : ?>
-						<a href="<?php echo esc_url( $pdf_modern ); ?>" class="wham-btn wham-btn-outline wham-btn-sm" target="_blank" title="Modern PDF">Mod.</a>
-					<?php endif; ?>
-					<?php if ( $pdf_swiss ) : ?>
-						<a href="<?php echo esc_url( $pdf_swiss ); ?>" class="wham-btn wham-btn-outline wham-btn-sm" target="_blank" title="Swiss PDF">Swi.</a>
-					<?php endif; ?>
-				<?php elseif ( $pdf_url ) : ?>
+				<?php if ( $pdf_url ) : ?>
 					<a href="<?php echo esc_url( $pdf_url ); ?>" class="wham-btn wham-btn-outline wham-btn-sm" target="_blank">
 						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 						PDF
