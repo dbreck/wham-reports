@@ -10,23 +10,10 @@ $client       = $report_data['client'] ?? [];
 $maintenance  = $report_data['maintenance'] ?? [];
 $search       = $report_data['search'] ?? [];
 $analytics    = $report_data['analytics'] ?? [];
-$dev_hours    = $report_data['dev_hours'] ?? [];
 $period_label = $report_data['period_label'] ?? '';
 $tier         = $report_data['tier'] ?? 'basic';
 
 $back_url = remove_query_arg( 'report' );
-
-// Chart file path to URL helper.
-$chart_to_url = function( $path ) {
-	if ( empty( $path ) || ! file_exists( $path ) ) {
-		return '';
-	}
-	$upload_dir = wp_get_upload_dir();
-	return str_replace( $upload_dir['basedir'], $upload_dir['baseurl'], $path );
-};
-
-$insights = $report_data['insights'] ?? [];
-$charts   = $report_data['charts'] ?? [];
 
 // Comparison helper.
 $render_change = function( $current, $previous, $format = 'number', $invert = false ) {
@@ -45,6 +32,12 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	}
 	return '<span class="wham-change ' . $class . '">' . $arrow . ' ' . abs( $pct ) . '%</span>';
 };
+
+// PDF style URLs.
+$pdf_editorial = get_post_meta( $report_post->ID, '_wham_pdf_url_editorial', true );
+$pdf_modern    = get_post_meta( $report_post->ID, '_wham_pdf_url_modern', true );
+$pdf_swiss     = get_post_meta( $report_post->ID, '_wham_pdf_url_swiss', true );
+$has_styles    = $pdf_editorial || $pdf_modern || $pdf_swiss;
 ?>
 <div class="wham-dashboard wham-detail">
 
@@ -61,7 +54,22 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 			</p>
 		</div>
 		<div class="wham-detail-header-right">
-			<?php if ( $pdf_url ) : ?>
+			<?php if ( $has_styles ) : ?>
+				<div class="wham-pdf-buttons">
+					<?php if ( $pdf_editorial ) : ?>
+						<a href="<?php echo esc_url( $pdf_editorial ); ?>" class="wham-btn wham-btn-primary wham-btn-sm" target="_blank">
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+							Editorial
+						</a>
+					<?php endif; ?>
+					<?php if ( $pdf_modern ) : ?>
+						<a href="<?php echo esc_url( $pdf_modern ); ?>" class="wham-btn wham-btn-outline wham-btn-sm" target="_blank">Modern</a>
+					<?php endif; ?>
+					<?php if ( $pdf_swiss ) : ?>
+						<a href="<?php echo esc_url( $pdf_swiss ); ?>" class="wham-btn wham-btn-outline wham-btn-sm" target="_blank">Swiss</a>
+					<?php endif; ?>
+				</div>
+			<?php elseif ( $pdf_url ) : ?>
 				<a href="<?php echo esc_url( $pdf_url ); ?>" class="wham-btn wham-btn-primary" target="_blank">
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 					Download PDF
@@ -69,62 +77,6 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 			<?php endif; ?>
 		</div>
 	</div>
-
-	<!-- Executive Summary & Health Scores -->
-	<?php if ( ! empty( $insights ) ) : ?>
-	<div class="wham-dash-section">
-		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-			<h3>Report Summary</h3>
-		</div>
-
-		<?php if ( ! empty( $insights['health_scores'] ) ) : ?>
-		<div class="wham-health-grid">
-			<?php
-			$score_labels = [
-				'security'  => 'Security',
-				'seo'       => 'SEO',
-				'traffic'   => 'Traffic',
-			];
-			$score_status = [
-				'green' => 'Healthy',
-				'amber' => 'Monitor',
-				'red'   => 'Needs Attention',
-			];
-			foreach ( $insights['health_scores'] as $key => $score ) :
-				if ( empty( $score_labels[ $key ] ) ) continue;
-			?>
-			<div class="wham-health-card wham-health-<?php echo esc_attr( $score ); ?>">
-				<div class="wham-health-label"><?php echo esc_html( $score_labels[ $key ] ); ?></div>
-				<div class="wham-health-status"><?php echo esc_html( $score_status[ $score ] ?? ucfirst( $score ) ); ?></div>
-			</div>
-			<?php endforeach; ?>
-		</div>
-		<?php endif; ?>
-
-		<?php if ( ! empty( $insights['executive_summary'] ) ) : ?>
-		<div class="wham-exec-summary"><?php echo esc_html( $insights['executive_summary'] ); ?></div>
-		<?php endif; ?>
-
-		<?php if ( ! empty( $insights['wins'] ) ) : ?>
-		<h4>Wins This Month</h4>
-		<ul class="wham-insights-list wham-wins-list">
-			<?php foreach ( $insights['wins'] as $win ) : ?>
-			<li><?php echo esc_html( $win ); ?></li>
-			<?php endforeach; ?>
-		</ul>
-		<?php endif; ?>
-
-		<?php if ( ! empty( $insights['watch_items'] ) ) : ?>
-		<h4>Areas to Watch</h4>
-		<ul class="wham-insights-list wham-watch-list">
-			<?php foreach ( $insights['watch_items'] as $item ) : ?>
-			<li><?php echo esc_html( $item ); ?></li>
-			<?php endforeach; ?>
-		</ul>
-		<?php endif; ?>
-	</div>
-	<?php endif; ?>
 
 	<!-- Maintenance Section -->
 	<div class="wham-dash-section">
@@ -135,7 +87,7 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 		<?php if ( ! empty( $maintenance['error'] ) ) : ?>
 			<p class="wham-dash-muted"><?php echo esc_html( $maintenance['error'] ); ?></p>
 		<?php else : ?>
-		<div class="wham-metric-grid wham-metric-grid-4">
+		<div class="wham-metric-grid wham-metric-grid-3">
 			<div class="wham-metric wham-metric-blue">
 				<span class="wham-metric-val"><?php echo esc_html( $maintenance['wp_version'] ?? 'N/A' ); ?></span>
 				<span class="wham-metric-lbl">WordPress</span>
@@ -152,11 +104,6 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 			<div class="wham-metric wham-metric-purple">
 				<span class="wham-metric-val"><?php echo esc_html( $maintenance['php_version'] ?? 'N/A' ); ?></span>
 				<span class="wham-metric-lbl">PHP Version</span>
-			</div>
-			<div class="wham-metric">
-				<span class="wham-metric-val"><?php echo esc_html( $maintenance['theme_name'] ?? 'N/A' ); ?></span>
-				<span class="wham-metric-sub"><?php echo esc_html( $maintenance['theme_version'] ?? '' ); ?></span>
-				<span class="wham-metric-lbl">Theme</span>
 			</div>
 		</div>
 
@@ -282,7 +229,6 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	<?php
 	$analytics_source = $analytics['source'] ?? '';
 	if ( $analytics_source !== 'skipped' && $analytics_source !== 'error' ) :
-		// GA4 stores previous period data as flat keys (previous_sessions, etc.).
 		$prev_analytics = [
 			'sessions'    => $analytics['previous_sessions'] ?? null,
 			'users'       => $analytics['previous_users'] ?? null,
@@ -358,11 +304,9 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 					<tr>
 						<?php
 						$page_path = $pg['page'] ?? $pg['path'] ?? $pg['landingPagePlusQueryString'] ?? '';
-						// Strip domain to show just the path.
 						if ( strpos( $page_path, 'http' ) === 0 ) {
 							$page_path = parse_url( $page_path, PHP_URL_PATH ) ?: $page_path;
 						}
-						// Show "/" as "Home" for readability.
 						if ( $page_path === '/' ) $page_path = 'Home';
 						?>
 						<td class="wham-td-query"><?php echo esc_html( $page_path ); ?></td>
@@ -374,28 +318,6 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 			</table>
 		</div>
 		<?php endif; ?>
-	</div>
-	<?php endif; ?>
-
-	<!-- Recommendations -->
-	<?php if ( ! empty( $insights['recommendations'] ) ) : ?>
-	<div class="wham-dash-section">
-		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-			<h3>Recommendations</h3>
-		</div>
-		<?php foreach ( $insights['recommendations'] as $i => $rec ) : ?>
-		<div class="wham-recommendation">
-			<span class="wham-recommendation-num"><?php echo (int) $i + 1; ?></span>
-			<span class="wham-recommendation-title"><?php echo esc_html( $rec['title'] ?? '' ); ?></span>
-			<?php if ( ! empty( $rec['rationale'] ) ) : ?>
-			<p class="wham-recommendation-rationale"><?php echo esc_html( $rec['rationale'] ); ?></p>
-			<?php endif; ?>
-			<?php if ( ! empty( $rec['impact'] ) ) : ?>
-			<p class="wham-recommendation-impact">Expected impact: <?php echo esc_html( $rec['impact'] ); ?></p>
-			<?php endif; ?>
-		</div>
-		<?php endforeach; ?>
 	</div>
 	<?php endif; ?>
 

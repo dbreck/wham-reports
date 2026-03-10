@@ -12,18 +12,22 @@ defined( 'ABSPATH' ) || exit;
  */
 class PDF_Generator {
 
+    /** @var string[] Available style variants for professional/premium tier. */
+    private const STYLES = [ 'editorial', 'modern', 'swiss' ];
+
     /**
-     * Generate a PDF report and attach it to a wham_report post.
+     * Generate a PDF report in a specific style and attach it to a wham_report post.
      *
-     * @param array $report_data  The collected report data.
-     * @param int   $post_id      The wham_report post ID.
+     * @param array  $report_data  The collected report data.
+     * @param int    $post_id      The wham_report post ID.
+     * @param string $style        Style variant: 'editorial', 'modern', 'swiss', or '' for auto.
      * @return string|null  The PDF URL on success, null on failure.
      */
-    public function generate( array $report_data, int $post_id ): ?string {
+    public function generate( array $report_data, int $post_id, string $style = '' ): ?string {
         $tier = $report_data['tier'] ?? 'basic';
 
         // Render HTML from template.
-        $html = $this->render_template( $report_data, $tier );
+        $html = $this->render_template( $report_data, $tier, $style );
         if ( empty( $html ) ) {
             $this->log( 'PDF template rendered empty HTML.' );
             return null;
@@ -46,7 +50,8 @@ class PDF_Generator {
 
         $client_slug = sanitize_title( $report_data['client']['name'] ?? 'unknown' );
         $period      = $report_data['period'] ?? date( 'Y-m' );
-        $filename    = "WHAM-Report-{$client_slug}-{$period}.pdf";
+        $style_suffix = $style ? "-{$style}" : '';
+        $filename    = "WHAM-Report-{$client_slug}-{$period}{$style_suffix}.pdf";
         $filepath    = $pdf_dir . '/' . $filename;
 
         $written = file_put_contents( $filepath, $pdf_bytes );
@@ -69,20 +74,71 @@ class PDF_Generator {
         if ( ! is_wp_error( $attachment_id ) ) {
             require_once ABSPATH . 'wp-admin/includes/image.php';
             wp_update_attachment_metadata( $attachment_id, wp_generate_attachment_metadata( $attachment_id, $filepath ) );
-            update_post_meta( $post_id, '_wham_pdf_attachment_id', $attachment_id );
+            if ( $style ) {
+                update_post_meta( $post_id, "_wham_pdf_attachment_id_{$style}", $attachment_id );
+            } else {
+                update_post_meta( $post_id, '_wham_pdf_attachment_id', $attachment_id );
+            }
         }
 
         return $pdf_url;
     }
 
     /**
+     * Generate all 3 style variants for professional/premium tier reports.
+     *
+     * @param array $report_data  The collected report data.
+     * @param int   $post_id      The wham_report post ID.
+     * @return array  Associative array of style => URL.
+     */
+    public function generate_all_styles( array $report_data, int $post_id ): array {
+        $tier = $report_data['tier'] ?? 'basic';
+        $urls = [];
+
+        if ( $tier === 'basic' ) {
+            // Basic tier: single PDF, no style variants.
+            $url = $this->generate( $report_data, $post_id );
+            if ( $url ) {
+                update_post_meta( $post_id, '_wham_pdf_url', $url );
+                $urls['default'] = $url;
+            }
+            return $urls;
+        }
+
+        // Professional/Premium: generate all 3 styles.
+        foreach ( self::STYLES as $style ) {
+            $url = $this->generate( $report_data, $post_id, $style );
+            if ( $url ) {
+                update_post_meta( $post_id, "_wham_pdf_url_{$style}", $url );
+                $urls[ $style ] = $url;
+                $this->log( "  → {$style} PDF generated: {$url}" );
+            } else {
+                $this->log( "  → {$style} PDF generation failed." );
+            }
+        }
+
+        // Backward compat: _wham_pdf_url points to editorial (first/default).
+        if ( ! empty( $urls['editorial'] ) ) {
+            update_post_meta( $post_id, '_wham_pdf_url', $urls['editorial'] );
+        } elseif ( ! empty( $urls ) ) {
+            update_post_meta( $post_id, '_wham_pdf_url', reset( $urls ) );
+        }
+
+        return $urls;
+    }
+
+    /**
      * Render the HTML template for a report.
      */
-    private function render_template( array $data, string $tier ): string {
-        // Choose template by tier.
-        $template_file = ( $tier === 'professional' || $tier === 'premium' )
-            ? 'report-professional.php'
-            : 'report-basic.php';
+    private function render_template( array $data, string $tier, string $style = '' ): string {
+        if ( $tier === 'basic' ) {
+            $template_file = 'report-basic.php';
+        } elseif ( $style && in_array( $style, self::STYLES, true ) ) {
+            $template_file = "report-{$style}.php";
+        } else {
+            // Fallback to professional template.
+            $template_file = 'report-professional.php';
+        }
 
         $template_path = WHAM_REPORTS_PATH . 'templates/pdf/' . $template_file;
 

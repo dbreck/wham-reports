@@ -435,6 +435,12 @@
 	padding-top: 16px;
 }
 
+.wham-pdf-buttons {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
 .wham-back-link {
 	display: inline-flex;
 	align-items: center;
@@ -632,6 +638,10 @@
 	display: grid;
 	gap: 12px;
 	margin-bottom: 4px;
+}
+
+.wham-metric-grid-3 {
+	grid-template-columns: repeat(3, 1fr);
 }
 
 .wham-metric-grid-4 {
@@ -1101,8 +1111,16 @@
 		padding-top: 0;
 	}
 
+	.wham-metric-grid-3 {
+		grid-template-columns: repeat(3, 1fr);
+	}
+
 	.wham-metric-grid-4 {
 		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.wham-pdf-buttons {
+		flex-wrap: wrap;
 	}
 
 	.wham-report-grid {

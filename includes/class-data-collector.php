@@ -186,17 +186,7 @@ class Data_Collector {
             }
         }
 
-        // Dev hours doughnut (all tiers).
-        $hrs_used = (float) ( $report_data['dev_hours']['hours_used'] ?? 0 );
-        $hrs_rem  = (float) ( $report_data['dev_hours']['hours_remaining'] ?? 0 );
-        if ( $hrs_used > 0 || $hrs_rem > 0 ) {
-            $report_data['charts']['dev_hours'] = Chart_Generator::doughnut_chart(
-                [ 'Used', 'Remaining' ],
-                [ $hrs_used, $hrs_rem ],
-                [ 'colors' => [ '#3b82f6', '#e2e8f0' ] ]
-            );
-            $this->log( '  → Dev hours chart generated.' );
-        }
+        // Dev hours chart removed in v3.0 — dev hours no longer shown in reports.
 
         // ── Create Report Post ────────────────────────────────────────
 
@@ -225,15 +215,15 @@ class Data_Collector {
 
         $this->log( "  → Report post created (ID: {$post_id})." );
 
-        // ── Generate PDF ──────────────────────────────────────────────
+        // ── Generate PDFs (all style variants) ───────────────────────
 
-        $pdf_url = $this->pdf->generate( $report_data, $post_id );
-        if ( $pdf_url ) {
-            update_post_meta( $post_id, '_wham_pdf_url', $pdf_url );
-            $this->log( "  → PDF generated: {$pdf_url}" );
+        $pdf_urls = $this->pdf->generate_all_styles( $report_data, $post_id );
+        if ( ! empty( $pdf_urls ) ) {
+            $this->log( '  → PDFs generated: ' . implode( ', ', array_keys( $pdf_urls ) ) );
         } else {
             $this->log( '  → PDF generation failed.' );
         }
+        $pdf_url = $pdf_urls['editorial'] ?? $pdf_urls['default'] ?? reset( $pdf_urls ) ?: null;
 
         // ── Update Monday.com Status ──────────────────────────────────
 
@@ -402,11 +392,8 @@ class Data_Collector {
 
                 update_post_meta( $post_id, '_wham_report_data', wp_json_encode( $report_data ) );
 
-                // Re-generate PDF with updated data.
-                $pdf_url = $this->pdf->generate( $report_data, $post_id );
-                if ( $pdf_url ) {
-                    update_post_meta( $post_id, '_wham_pdf_url', $pdf_url );
-                }
+                // Re-generate PDFs with updated data.
+                $this->pdf->generate_all_styles( $report_data, $post_id );
             }
         }
 

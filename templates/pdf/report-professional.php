@@ -7,6 +7,8 @@
  */
 defined( 'ABSPATH' ) || exit;
 
+require_once __DIR__ . '/helpers.php';
+
 $client       = $report['client'] ?? [];
 $maintenance  = $report['maintenance'] ?? [];
 $search       = $report['search'] ?? [];
@@ -514,77 +516,49 @@ if ( ! function_exists( 'wham_chart_img' ) ) {
 
 <div class="content">
 
-	<!-- Executive Summary -->
-	<?php if ( $exec_summary ) : ?>
-		<div class="exec-summary"><?php echo esc_html( $exec_summary ); ?></div>
-	<?php endif; ?>
+	<!-- Updates & Maintenance -->
+	<div class="section-title">Updates &amp; Maintenance</div>
 
-	<!-- Health Score Cards -->
-	<?php
-	$health_labels = [
-		'security'  => 'Security',
-		'seo'       => 'SEO',
-		'traffic'   => 'Traffic',
-		'dev_hours' => 'Dev Activity',
-	];
-	$health_status_text = [
-		'green' => 'HEALTHY',
-		'amber' => 'MONITOR',
-		'red'   => 'ALERT',
-	];
-	?>
-	<table class="health-cards">
-		<tr>
-			<?php foreach ( $health_labels as $key => $label ) :
-				$score  = $health_scores[ $key ] ?? 'green';
-				$bg     = wham_health_bg( $score );
-				$color  = wham_health_color( $score );
-				$status = $health_status_text[ $score ] ?? 'OK';
-			?>
-				<td class="health-card" style="background-color: <?php echo $bg; ?>;">
-					<div class="health-card-status" style="color: <?php echo $color; ?>;"><?php echo $status; ?></div>
-					<div class="health-card-label" style="color: <?php echo $color; ?>;"><?php echo esc_html( $label ); ?></div>
+	<?php if ( $maint_error ) : ?>
+		<div class="notice"><?php echo esc_html( $maint_error ); ?></div>
+	<?php else : ?>
+		<table class="metrics-table">
+			<tr>
+				<td class="metric-cell">
+					<div class="metric-value <?php echo $wp_up_to_date ? 'metric-value-green' : 'metric-value-amber'; ?>"><?php echo esc_html( $wp_version ); ?></div>
+					<div class="metric-label">WordPress</div>
 				</td>
-			<?php endforeach; ?>
-		</tr>
-	</table>
-
-	<!-- Top Wins -->
-	<?php if ( ! empty( $wins ) ) : ?>
-		<div style="font-size:10pt;font-weight:bold;color:#1a2332;margin-bottom:6px;">Top Wins This Month</div>
-		<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-			<?php foreach ( array_slice( $wins, 0, 3 ) as $win ) : ?>
-				<tr>
-					<td style="width:18px;vertical-align:top;padding:4px 8px 4px 0;">
-						<span style="display:inline-block;width:10px;height:10px;background-color:#059669;border-radius:50;">&nbsp;</span>
-					</td>
-					<td style="font-size:10pt;padding:3px 0;color:#2d3748;"><?php echo esc_html( $win ); ?></td>
-				</tr>
-			<?php endforeach; ?>
+				<td class="metric-cell">
+					<div class="metric-value <?php echo 0 === $plugins_updates ? 'metric-value-green' : 'metric-value-amber'; ?>"><?php echo $plugins_updated; ?>/<?php echo $plugins_total; ?></div>
+					<div class="metric-label">Plugins Updated</div>
+				</td>
+				<td class="metric-cell">
+					<div class="metric-value metric-value-green"><?php echo esc_html( $php_version ); ?></div>
+					<div class="metric-label">PHP</div>
+				</td>
+			</tr>
 		</table>
-	<?php endif; ?>
 
-	<!-- Watch Items -->
-	<?php if ( ! empty( $watch_items ) ) : ?>
-		<div style="font-size:10pt;font-weight:bold;color:#1a2332;margin-bottom:6px;">Items to Watch</div>
-		<table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-			<?php foreach ( array_slice( $watch_items, 0, 3 ) as $watch ) : ?>
-				<tr>
-					<td style="width:18px;vertical-align:top;padding:4px 8px 4px 0;">
-						<span style="display:inline-block;width:10px;height:10px;background-color:#d97706;border-radius:50;">&nbsp;</span>
-					</td>
-					<td style="font-size:10pt;padding:3px 0;color:#2d3748;"><?php echo esc_html( $watch ); ?></td>
-				</tr>
-			<?php endforeach; ?>
-		</table>
-	<?php endif; ?>
-
-	<!-- Key Recommendation Callout -->
-	<?php if ( ! empty( $recommendations[0] ) ) : ?>
-		<div class="callout-box">
-			<div class="callout-title">Key Recommendation: <?php echo esc_html( $recommendations[0]['title'] ?? '' ); ?></div>
-			<div class="callout-text"><?php echo esc_html( $recommendations[0]['rationale'] ?? '' ); ?></div>
-		</div>
+		<?php if ( ! empty( $plugins_needing ) ) : ?>
+			<table class="data-table" style="margin-bottom:18px;">
+				<thead>
+					<tr>
+						<th>Plugin</th>
+						<th style="text-align:right;">Current Version</th>
+						<th style="text-align:right;">Available Version</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php $i = 0; foreach ( $plugins_needing as $plugin ) : ?>
+						<tr<?php echo $i++ % 2 ? ' class="alt"' : ''; ?>>
+							<td><?php echo esc_html( $plugin['name'] ?? $plugin['plugin'] ?? '' ); ?></td>
+							<td style="text-align:right;"><?php echo esc_html( $plugin['current_version'] ?? $plugin['version'] ?? '—' ); ?></td>
+							<td style="text-align:right;"><?php echo esc_html( $plugin['new_version'] ?? '—' ); ?></td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		<?php endif; ?>
 	<?php endif; ?>
 
 </div><!-- .content -->
@@ -809,162 +783,7 @@ if ( ! function_exists( 'wham_chart_img' ) ) {
 	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
 </div>
 
-<!-- ============================================================ -->
-<!-- PAGE 4: Technical Health + Dev Hours                         -->
-<!-- ============================================================ -->
-
-<div style="page-break-before: always;"></div>
-
-<div class="content">
-
-	<!-- Technical Health -->
-	<div class="section-title">Technical Health</div>
-
-	<?php if ( $maint_error ) : ?>
-		<div class="notice"><?php echo esc_html( $maint_error ); ?></div>
-	<?php else : ?>
-
-		<table class="metrics-table">
-			<tr>
-				<td class="metric-cell">
-					<div class="metric-value <?php echo $wp_up_to_date ? 'metric-value-green' : 'metric-value-amber'; ?>"><?php echo esc_html( $wp_version ); ?></div>
-					<div class="metric-label">WordPress</div>
-					<div class="metric-change"><span class="<?php echo $wp_up_to_date ? 'badge-green' : 'badge-amber'; ?>"><?php echo $wp_up_to_date ? 'Current' : 'Update Available'; ?></span></div>
-				</td>
-				<td class="metric-cell">
-					<div class="metric-value <?php echo 0 === $plugins_updates ? 'metric-value-green' : 'metric-value-amber'; ?>"><?php echo $plugins_updated; ?>/<?php echo $plugins_total; ?></div>
-					<div class="metric-label">Plugins Updated</div>
-					<div class="metric-change"><span class="<?php echo 0 === $plugins_updates ? 'badge-green' : 'badge-amber'; ?>"><?php echo 0 === $plugins_updates ? 'All Current' : $plugins_updates . ' Pending'; ?></span></div>
-				</td>
-				<td class="metric-cell">
-					<div class="metric-value <?php echo $theme_current ? 'metric-value-green' : 'metric-value-amber'; ?>"><?php echo esc_html( $theme_version ); ?></div>
-					<div class="metric-label"><?php echo esc_html( $theme_name ); ?></div>
-					<div class="metric-change"><span class="<?php echo $theme_current ? 'badge-green' : 'badge-amber'; ?>"><?php echo $theme_current ? 'Current' : 'Update Available'; ?></span></div>
-				</td>
-				<td class="metric-cell">
-					<div class="metric-value metric-value-green"><?php echo esc_html( $php_version ); ?></div>
-					<div class="metric-label">PHP</div>
-				</td>
-			</tr>
-		</table>
-
-		<!-- Plugin Update Detail Table -->
-		<?php if ( ! empty( $plugins_needing ) ) : ?>
-			<table class="data-table" style="margin-bottom:18px;">
-				<thead>
-					<tr>
-						<th>Plugin</th>
-						<th style="text-align:right;">Current Version</th>
-						<th style="text-align:right;">Available Version</th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php $i = 0; foreach ( $plugins_needing as $plugin ) : ?>
-						<tr<?php echo $i++ % 2 ? ' class="alt"' : ''; ?>>
-							<td><?php echo esc_html( $plugin['name'] ?? $plugin['plugin'] ?? '' ); ?></td>
-							<td style="text-align:right;"><?php echo esc_html( $plugin['current_version'] ?? $plugin['version'] ?? '—' ); ?></td>
-							<td style="text-align:right;"><?php echo esc_html( $plugin['new_version'] ?? '—' ); ?></td>
-						</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
-		<?php endif; ?>
-
-	<?php endif; ?>
-
-	<!-- Development Activity -->
-	<div class="section-title" style="margin-top:20px;">Development Activity</div>
-
-	<?php if ( $dev_error ) : ?>
-		<div class="notice"><?php echo esc_html( $dev_error ); ?></div>
-	<?php else : ?>
-
-		<?php
-		$pct       = $hours_included > 0 ? min( 100, round( ( $hours_used / $hours_included ) * 100 ) ) : 0;
-		$bar_color = $pct > 90 ? '#dc2626' : ( $pct > 70 ? '#d97706' : '#16a34a' );
-		?>
-
-		<!-- Hours KPI Cards -->
-		<table class="metrics-table">
-			<tr>
-				<td class="metric-cell">
-					<div class="metric-value"><?php echo esc_html( $hours_used ); ?></div>
-					<div class="metric-label">Hours Used</div>
-				</td>
-				<td class="metric-cell">
-					<div class="metric-value"><?php echo esc_html( $hours_included ); ?></div>
-					<div class="metric-label">Included</div>
-				</td>
-				<td class="metric-cell">
-					<div class="metric-value <?php echo $hours_remaining > 0 ? 'metric-value-green' : 'metric-value-red'; ?>"><?php echo esc_html( $hours_remaining ); ?></div>
-					<div class="metric-label">Remaining</div>
-				</td>
-			</tr>
-		</table>
-
-		<!-- Dev Hours Doughnut Chart -->
-		<?php if ( ! empty( $charts['dev_hours'] ) ) : ?>
-			<?php echo wham_chart_img( $charts['dev_hours'], '240px' ); ?>
-		<?php endif; ?>
-
-		<!-- Progress Bar (table-based) -->
-		<table style="width:100%;border-collapse:collapse;">
-			<tr>
-				<td style="padding:0;">
-					<div class="hours-bar-outer">
-						<div class="hours-bar-inner" style="width: <?php echo $pct; ?>%; background-color: <?php echo $bar_color; ?>;"></div>
-					</div>
-				</td>
-			</tr>
-		</table>
-		<div class="hours-pct-label"><?php echo $pct; ?>% of included hours used</div>
-
-		<?php if ( $work_summary ) : ?>
-			<div class="work-summary">
-				<strong>Work Performed:</strong> <?php echo esc_html( $work_summary ); ?>
-			</div>
-		<?php endif; ?>
-
-	<?php endif; ?>
-
-</div>
-
-<!-- Footer -->
-<div class="footer-bar">
-	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
-</div>
-
-<!-- ============================================================ -->
-<!-- PAGE 5: Recommendations (only if non-empty)                  -->
-<!-- ============================================================ -->
-
-<?php if ( ! empty( $recommendations ) ) : ?>
-
-<div style="page-break-before: always;"></div>
-
-<div class="content">
-	<div class="section-title">Recommendations</div>
-
-	<?php foreach ( array_slice( $recommendations, 0, 4 ) as $i => $rec ) : ?>
-		<div class="rec-item">
-			<span class="rec-number"><?php echo $i + 1; ?></span>
-			<span class="rec-title"><?php echo esc_html( $rec['title'] ?? '' ); ?></span>
-			<?php if ( ! empty( $rec['rationale'] ) ) : ?>
-				<div class="rec-rationale"><?php echo esc_html( $rec['rationale'] ); ?></div>
-			<?php endif; ?>
-			<?php if ( ! empty( $rec['impact'] ) ) : ?>
-				<div class="rec-impact">Expected Impact: <?php echo esc_html( $rec['impact'] ); ?></div>
-			<?php endif; ?>
-		</div>
-	<?php endforeach; ?>
-</div>
-
-<!-- Footer -->
-<div class="footer-bar">
-	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
-</div>
-
-<?php endif; ?>
+<!-- Page 4 (Technical Health) and Page 5 (Recommendations) removed in v3.0 -->
 
 </body>
 </html>

@@ -11,52 +11,35 @@ if ( $report_id ) :
 	}
 
 	$report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
-	$insights    = $report_data['insights'] ?? [];
-	$health      = $insights['health_scores'] ?? [];
+	$tier        = $report_data['tier'] ?? 'basic';
 
-	$exec_summary    = $insights['executive_summary'] ?? '';
-	$wins            = $insights['wins'] ?? [];
-	$watch_items     = $insights['watch_items'] ?? [];
-	$recommendations = $insights['recommendations'] ?? [];
-
-	$health_colors = [
-		'good'    => '#16a34a',
-		'warning' => '#ca8a04',
-		'poor'    => '#dc2626',
-	];
+	// PDF style URLs.
+	$pdf_editorial = get_post_meta( $report_id, '_wham_pdf_url_editorial', true );
+	$pdf_modern    = get_post_meta( $report_id, '_wham_pdf_url_modern', true );
+	$pdf_swiss     = get_post_meta( $report_id, '_wham_pdf_url_swiss', true );
+	$pdf_url       = get_post_meta( $report_id, '_wham_pdf_url', true );
+	$has_styles    = $pdf_editorial || $pdf_modern || $pdf_swiss;
 ?>
-<style>
-	.wham-health-badges { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0 24px; }
-	.wham-health-badge {
-		padding: 8px 16px; border-radius: 6px; color: #fff; font-weight: 600; font-size: 13px;
-	}
-	.wham-field-group { margin-bottom: 12px; padding: 12px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; }
-	.wham-field-group .wham-remove { float: right; cursor: pointer; color: #b32d2e; border: none; background: none; font-size: 18px; line-height: 1; }
-	.wham-rec-fields { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 8px; }
-	.wham-rec-fields input, .wham-rec-fields textarea { width: 100%; }
-	.wham-rec-fields textarea { min-height: 60px; }
-	.wham-add-btn { margin-top: 8px; }
-</style>
 
 <div class="wrap wham-admin">
 	<h1><?php echo esc_html( $post->post_title ); ?></h1>
 	<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=wham-reports-drafts' ) ); ?>">&larr; Back to Draft List</a></p>
 
-	<?php if ( ! empty( $health ) ) : ?>
-		<h3>Health Scores</h3>
-		<div class="wham-health-badges">
-			<?php foreach ( $health as $key => $score ) :
-				$level = 'good';
-				if ( is_numeric( $score ) ) {
-					if ( $score < 50 ) { $level = 'poor'; }
-					elseif ( $score < 75 ) { $level = 'warning'; }
-				}
-			?>
-				<span class="wham-health-badge" style="background:<?php echo esc_attr( $health_colors[ $level ] ); ?>;">
-					<?php echo esc_html( ucwords( str_replace( '_', ' ', $key ) ) ); ?>: <?php echo esc_html( $score ); ?>
-				</span>
-			<?php endforeach; ?>
-		</div>
+	<?php if ( $has_styles ) : ?>
+		<h3>Preview PDFs</h3>
+		<p>
+			<?php if ( $pdf_editorial ) : ?>
+				<a href="<?php echo esc_url( $pdf_editorial ); ?>" class="button" target="_blank">Editorial PDF</a>
+			<?php endif; ?>
+			<?php if ( $pdf_modern ) : ?>
+				<a href="<?php echo esc_url( $pdf_modern ); ?>" class="button" target="_blank">Modern PDF</a>
+			<?php endif; ?>
+			<?php if ( $pdf_swiss ) : ?>
+				<a href="<?php echo esc_url( $pdf_swiss ); ?>" class="button" target="_blank">Swiss PDF</a>
+			<?php endif; ?>
+		</p>
+	<?php elseif ( $pdf_url ) : ?>
+		<p><a href="<?php echo esc_url( $pdf_url ); ?>" class="button" target="_blank">Preview PDF</a></p>
 	<?php endif; ?>
 
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -64,101 +47,12 @@ if ( $report_id ) :
 		<input type="hidden" name="report_id" value="<?php echo esc_attr( $report_id ); ?>" />
 		<?php wp_nonce_field( 'wham_approve_report' ); ?>
 
-		<table class="form-table">
-			<tr>
-				<th scope="row"><label for="executive_summary">Executive Summary</label></th>
-				<td>
-					<textarea id="executive_summary" name="executive_summary" rows="4" class="large-text"><?php echo esc_textarea( $exec_summary ); ?></textarea>
-				</td>
-			</tr>
-			<tr>
-				<th scope="row">Wins</th>
-				<td>
-					<div id="wins-list">
-						<?php foreach ( $wins as $win ) : ?>
-							<div class="wham-field-group">
-								<button type="button" class="wham-remove" title="Remove">&times;</button>
-								<input type="text" name="wins[]" value="<?php echo esc_attr( $win ); ?>" class="large-text" />
-							</div>
-						<?php endforeach; ?>
-					</div>
-					<button type="button" class="button wham-add-btn" id="add-win">Add Win</button>
-				</td>
-			</tr>
-			<tr>
-				<th scope="row">Watch Items</th>
-				<td>
-					<div id="watch-list">
-						<?php foreach ( $watch_items as $item ) : ?>
-							<div class="wham-field-group">
-								<button type="button" class="wham-remove" title="Remove">&times;</button>
-								<input type="text" name="watch_items[]" value="<?php echo esc_attr( $item ); ?>" class="large-text" />
-							</div>
-						<?php endforeach; ?>
-					</div>
-					<button type="button" class="button wham-add-btn" id="add-watch">Add Watch Item</button>
-				</td>
-			</tr>
-			<tr>
-				<th scope="row">Recommendations</th>
-				<td>
-					<div id="rec-list">
-						<?php foreach ( $recommendations as $rec ) : ?>
-							<div class="wham-field-group">
-								<button type="button" class="wham-remove" title="Remove">&times;</button>
-								<div class="wham-rec-fields">
-									<input type="text" name="rec_title[]" value="<?php echo esc_attr( $rec['title'] ?? '' ); ?>" placeholder="Title" />
-									<textarea name="rec_rationale[]" placeholder="Rationale"><?php echo esc_textarea( $rec['rationale'] ?? '' ); ?></textarea>
-									<input type="text" name="rec_impact[]" value="<?php echo esc_attr( $rec['impact'] ?? '' ); ?>" placeholder="Impact" />
-								</div>
-							</div>
-						<?php endforeach; ?>
-					</div>
-					<button type="button" class="button wham-add-btn" id="add-rec">Add Recommendation</button>
-				</td>
-			</tr>
-		</table>
-
 		<p class="submit">
 			<button type="submit" name="send_email" value="1" class="button button-primary">Approve &amp; Send Email</button>
 			<button type="submit" name="send_email" value="0" class="button">Approve (Dashboard Only)</button>
 		</p>
 	</form>
 </div>
-
-<script>
-(function() {
-	function addRemoveHandler(btn) {
-		btn.addEventListener('click', function() { this.closest('.wham-field-group').remove(); });
-	}
-	document.querySelectorAll('.wham-remove').forEach(addRemoveHandler);
-
-	function addRow(containerId, html) {
-		var container = document.getElementById(containerId);
-		var div = document.createElement('div');
-		div.className = 'wham-field-group';
-		div.innerHTML = '<button type="button" class="wham-remove" title="Remove">&times;</button>' + html;
-		addRemoveHandler(div.querySelector('.wham-remove'));
-		container.appendChild(div);
-	}
-
-	document.getElementById('add-win').addEventListener('click', function() {
-		addRow('wins-list', '<input type="text" name="wins[]" value="" class="large-text" />');
-	});
-	document.getElementById('add-watch').addEventListener('click', function() {
-		addRow('watch-list', '<input type="text" name="watch_items[]" value="" class="large-text" />');
-	});
-	document.getElementById('add-rec').addEventListener('click', function() {
-		addRow('rec-list',
-			'<div class="wham-rec-fields">' +
-			'<input type="text" name="rec_title[]" value="" placeholder="Title" />' +
-			'<textarea name="rec_rationale[]" placeholder="Rationale"></textarea>' +
-			'<input type="text" name="rec_impact[]" value="" placeholder="Impact" />' +
-			'</div>'
-		);
-	});
-})();
-</script>
 
 <?php else :
 	// ── Mode A: Draft List ───────────────────────────────────────────
