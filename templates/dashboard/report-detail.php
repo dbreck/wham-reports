@@ -1,6 +1,6 @@
 <?php
 /**
- * Client Dashboard — Single Report Detail View
+ * Client Dashboard — Single Report Detail View (Swiss aesthetic)
  *
  * Variables: $report_post (WP_Post), $report_data (array), $pdf_url (string), $is_admin (bool)
  */
@@ -15,7 +15,7 @@ $tier         = $report_data['tier'] ?? 'basic';
 
 $back_url = remove_query_arg( 'report' );
 
-// Comparison helper.
+// Swiss-style change indicator: +/- prefix, colored text, no pill background.
 $render_change = function( $current, $previous, $format = 'number', $invert = false ) {
 	if ( ! is_numeric( $current ) || ! is_numeric( $previous ) || 0 == $previous ) {
 		return '';
@@ -24,13 +24,13 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	$pct     = round( ( $diff / abs( $previous ) ) * 100, 1 );
 	$is_pos  = $diff > 0;
 	$is_good = $invert ? ! $is_pos : $is_pos;
-	$arrow   = $is_pos ? '&#9650;' : '&#9660;';
+	$prefix  = $is_pos ? '+' : '-';
 	$class   = $is_good ? 'wham-change-up' : 'wham-change-down';
 	if ( abs( $pct ) < 1 ) {
-		$class = 'wham-change-flat';
-		$arrow = '&#9644;';
+		$class  = 'wham-change-flat';
+		$prefix = '';
 	}
-	return '<span class="wham-change ' . $class . '">' . $arrow . ' ' . abs( $pct ) . '%</span>';
+	return '<span class="wham-change ' . $class . '">' . $prefix . abs( $pct ) . '%</span>';
 };
 
 // PDF URL (check Swiss first for backward compat with v3.0.0 reports, then default).
@@ -62,17 +62,16 @@ if ( ! $pdf_url ) {
 		</div>
 	</div>
 
-	<!-- Maintenance Section -->
+	<!-- Maintenance -->
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-			<h3>Updates &amp; Maintenance</h3>
+			<h3>Maintenance</h3>
 		</div>
 		<?php if ( ! empty( $maintenance['error'] ) ) : ?>
 			<p class="wham-dash-muted"><?php echo esc_html( $maintenance['error'] ); ?></p>
 		<?php else : ?>
 		<div class="wham-metric-grid wham-metric-grid-3">
-			<div class="wham-metric wham-metric-blue">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( $maintenance['wp_version'] ?? 'N/A' ); ?></span>
 				<span class="wham-metric-lbl">WordPress</span>
 			</div>
@@ -81,11 +80,11 @@ if ( ! $pdf_url ) {
 				$p_pending = (int) ( $maintenance['plugins_updates_count'] ?? 0 );
 				$p_updated = $p_total - $p_pending;
 			?>
-			<div class="wham-metric wham-metric-green">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( $p_updated . '/' . $p_total ); ?></span>
-				<span class="wham-metric-lbl">Plugins Updated</span>
+				<span class="wham-metric-lbl">Plugins Current</span>
 			</div>
-			<div class="wham-metric wham-metric-purple">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( $maintenance['php_version'] ?? 'N/A' ); ?></span>
 				<span class="wham-metric-lbl">PHP Version</span>
 			</div>
@@ -100,7 +99,7 @@ if ( ! $pdf_url ) {
 				<?php foreach ( $maintenance['plugin_details'] as $plugin ) : ?>
 					<tr>
 						<td><?php echo esc_html( $plugin['name'] ?? '' ); ?></td>
-						<td><code><?php echo esc_html( $plugin['version'] ?? '' ); ?></code></td>
+						<td class="wham-td-mono"><?php echo esc_html( $plugin['version'] ?? '' ); ?></td>
 						<td>
 							<?php if ( ! empty( $plugin['update_available'] ) ) : ?>
 								<span class="wham-status-badge wham-status-warning">Update Available</span>
@@ -117,11 +116,10 @@ if ( ! $pdf_url ) {
 		<?php endif; ?>
 	</div>
 
-	<!-- Search Console Section -->
+	<!-- Search Performance -->
 	<?php
 	$search_source = $search['source'] ?? '';
 	if ( $search_source !== 'skipped' && $search_source !== 'not_configured' ) :
-		// GSC stores comparison data under 'comparison' with prev_ prefixed keys.
 		$search_comp = $search['comparison'] ?? [];
 		$prev_search = [
 			'clicks'      => $search_comp['prev_clicks'] ?? null,
@@ -132,29 +130,28 @@ if ( ! $pdf_url ) {
 	?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 			<h3>Search Performance</h3>
 		</div>
 		<?php if ( ! empty( $search['error'] ) ) : ?>
 			<p class="wham-dash-muted"><?php echo esc_html( $search['error'] ); ?></p>
 		<?php else : ?>
 		<div class="wham-metric-grid wham-metric-grid-4">
-			<div class="wham-metric wham-metric-blue">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( number_format( $search['clicks'] ?? 0 ) ); ?></span>
 				<?php echo $render_change( $search['clicks'] ?? 0, $prev_search['clicks'] ?? null ); ?>
 				<span class="wham-metric-lbl">Clicks</span>
 			</div>
-			<div class="wham-metric wham-metric-green">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( number_format( $search['impressions'] ?? 0 ) ); ?></span>
 				<?php echo $render_change( $search['impressions'] ?? 0, $prev_search['impressions'] ?? null ); ?>
 				<span class="wham-metric-lbl">Impressions</span>
 			</div>
-			<div class="wham-metric wham-metric-amber">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( $search['ctr'] ?? 0 ); ?>%</span>
 				<?php echo $render_change( $search['ctr'] ?? 0, $prev_search['ctr'] ?? null ); ?>
-				<span class="wham-metric-lbl">CTR</span>
+				<span class="wham-metric-lbl">Avg CTR</span>
 			</div>
-			<div class="wham-metric wham-metric-purple">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( $search['position'] ?? 0 ); ?></span>
 				<?php echo $render_change( $search['position'] ?? 0, $prev_search['position'] ?? null, 'number', true ); ?>
 				<span class="wham-metric-lbl">Avg Position</span>
@@ -169,7 +166,7 @@ if ( ! $pdf_url ) {
 		<?php endif; ?>
 
 		<?php if ( ! empty( $search['top_queries'] ) ) : ?>
-		<h4>Top Search Queries</h4>
+		<h4>Search Queries</h4>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
 				<thead><tr><th>Query</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Position</th></tr></thead>
@@ -177,10 +174,10 @@ if ( ! $pdf_url ) {
 				<?php foreach ( array_slice( $search['top_queries'], 0, 10 ) as $q ) : ?>
 					<tr>
 						<td class="wham-td-query"><?php echo esc_html( $q['query'] ?? '' ); ?></td>
-						<td><?php echo esc_html( $q['clicks'] ?? 0 ); ?></td>
-						<td><?php echo esc_html( number_format( $q['impressions'] ?? 0 ) ); ?></td>
-						<td><?php echo esc_html( $q['ctr'] ?? '' ); ?>%</td>
-						<td><?php echo esc_html( $q['position'] ?? '' ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( $q['clicks'] ?? 0 ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( number_format( $q['impressions'] ?? 0 ) ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( $q['ctr'] ?? '' ); ?>%</td>
+						<td class="wham-td-mono"><?php echo esc_html( $q['position'] ?? '' ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>
@@ -197,8 +194,8 @@ if ( ! $pdf_url ) {
 				<?php foreach ( array_slice( $search['top_pages'], 0, 10 ) as $p ) : ?>
 					<tr>
 						<td class="wham-td-query"><?php echo esc_html( $p['page'] ?? '' ); ?></td>
-						<td><?php echo esc_html( $p['clicks'] ?? 0 ); ?></td>
-						<td><?php echo esc_html( number_format( $p['impressions'] ?? 0 ) ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( $p['clicks'] ?? 0 ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( number_format( $p['impressions'] ?? 0 ) ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>
@@ -209,7 +206,7 @@ if ( ! $pdf_url ) {
 	</div>
 	<?php endif; ?>
 
-	<!-- GA4 Analytics Section -->
+	<!-- Website Traffic -->
 	<?php
 	$analytics_source = $analytics['source'] ?? '';
 	if ( $analytics_source !== 'skipped' && $analytics_source !== 'error' ) :
@@ -222,26 +219,25 @@ if ( ! $pdf_url ) {
 	?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-			<h3>Website Analytics</h3>
+			<h3>Website Traffic</h3>
 		</div>
 		<div class="wham-metric-grid wham-metric-grid-4">
-			<div class="wham-metric wham-metric-blue">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( number_format( $analytics['sessions'] ?? 0 ) ); ?></span>
 				<?php echo $render_change( $analytics['sessions'] ?? 0, $prev_analytics['sessions'] ?? null ); ?>
 				<span class="wham-metric-lbl">Sessions</span>
 			</div>
-			<div class="wham-metric wham-metric-green">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( number_format( $analytics['users'] ?? 0 ) ); ?></span>
 				<?php echo $render_change( $analytics['users'] ?? 0, $prev_analytics['users'] ?? null ); ?>
 				<span class="wham-metric-lbl">Users</span>
 			</div>
-			<div class="wham-metric wham-metric-purple">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( number_format( $analytics['pageviews'] ?? 0 ) ); ?></span>
 				<?php echo $render_change( $analytics['pageviews'] ?? 0, $prev_analytics['pageviews'] ?? null ); ?>
 				<span class="wham-metric-lbl">Pageviews</span>
 			</div>
-			<div class="wham-metric wham-metric-amber">
+			<div class="wham-metric">
 				<span class="wham-metric-val"><?php echo esc_html( $analytics['bounce_rate'] ?? 0 ); ?>%</span>
 				<?php echo $render_change( $analytics['bounce_rate'] ?? 0, $prev_analytics['bounce_rate'] ?? null, 'number', true ); ?>
 				<span class="wham-metric-lbl">Bounce Rate</span>
@@ -260,8 +256,8 @@ if ( ! $pdf_url ) {
 				<?php foreach ( array_slice( $analytics['traffic_sources'], 0, 8 ) as $src ) : ?>
 					<tr>
 						<td><?php echo esc_html( $src['source'] ?? $src['channel'] ?? $src['sessionDefaultChannelGroup'] ?? '' ); ?></td>
-						<td><?php echo esc_html( number_format( $src['sessions'] ?? $src['metric_0'] ?? 0 ) ); ?></td>
-						<td><?php echo esc_html( number_format( $src['users'] ?? $src['metric_1'] ?? 0 ) ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( number_format( $src['sessions'] ?? $src['metric_0'] ?? 0 ) ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( number_format( $src['users'] ?? $src['metric_1'] ?? 0 ) ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>
@@ -279,7 +275,7 @@ if ( ! $pdf_url ) {
 		<?php
 		$landing_pages = $analytics['top_pages'] ?? $analytics['top_landing_pages'] ?? [];
 		if ( ! empty( $landing_pages ) ) : ?>
-		<h4>Top Landing Pages</h4>
+		<h4>Landing Pages</h4>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
 				<thead><tr><th>Page</th><th>Sessions</th><th>Users</th></tr></thead>
@@ -294,8 +290,8 @@ if ( ! $pdf_url ) {
 						if ( $page_path === '/' ) $page_path = 'Home';
 						?>
 						<td class="wham-td-query"><?php echo esc_html( $page_path ); ?></td>
-						<td><?php echo esc_html( number_format( $pg['sessions'] ?? $pg['metric_0'] ?? 0 ) ); ?></td>
-						<td><?php echo esc_html( number_format( $pg['users'] ?? $pg['metric_1'] ?? 0 ) ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( number_format( $pg['sessions'] ?? $pg['metric_0'] ?? 0 ) ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( number_format( $pg['users'] ?? $pg['metric_1'] ?? 0 ) ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>
@@ -305,9 +301,20 @@ if ( ! $pdf_url ) {
 	</div>
 	<?php endif; ?>
 
-	<!-- Chart.js initialization -->
+	<!-- Chart.js — monochrome Swiss palette -->
 	<script>
 	document.addEventListener('DOMContentLoaded', function() {
+		var navy = '#0f172a';
+		var gray = '#94a3b8';
+		var gridColor = '#e2e8f0';
+		var fillColor = 'rgba(15,23,42,0.06)';
+
+		var axisOpts = {
+			y: { beginAtZero: true, grid: { color: gridColor, drawBorder: false }, ticks: { font: { size: 11, family: "'DM Mono', monospace" }, color: gray } },
+			x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 11, family: "'DM Mono', monospace" }, color: gray } }
+		};
+		var legendOpts = { position: 'top', labels: { usePointStyle: true, boxWidth: 6, font: { size: 11, family: "'DM Sans', sans-serif" }, color: navy, padding: 20 } };
+
 		// GSC Trend
 		(function() {
 			var el = document.getElementById('wham-gsc-trend');
@@ -317,16 +324,16 @@ if ( ! $pdf_url ) {
 				data: {
 					labels: <?php echo wp_json_encode( $search['daily_labels'] ?? [] ); ?>,
 					datasets: [
-						{ label: 'Clicks', data: <?php echo wp_json_encode( $search['daily_clicks'] ?? [] ); ?>, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 },
-						{ label: 'Impressions', data: <?php echo wp_json_encode( $search['daily_impressions'] ?? [] ); ?>, borderColor: '#16a34a', backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 }
+						{ label: 'Clicks', data: <?php echo wp_json_encode( $search['daily_clicks'] ?? [] ); ?>, borderColor: navy, backgroundColor: fillColor, fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
+						{ label: 'Impressions', data: <?php echo wp_json_encode( $search['daily_impressions'] ?? [] ); ?>, borderColor: gray, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, borderDash: [4, 3] }
 					]
 				},
 				options: {
 					responsive: true,
 					maintainAspectRatio: false,
 					interaction: { intersect: false, mode: 'index' },
-					plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } },
-					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } } }
+					plugins: { legend: legendOpts },
+					scales: axisOpts
 				}
 			});
 		})();
@@ -351,14 +358,17 @@ if ( ! $pdf_url ) {
 					labels: <?php echo wp_json_encode( $source_labels ); ?>,
 					datasets: [{
 						data: <?php echo wp_json_encode( $source_values ); ?>,
-						backgroundColor: ['#3b82f6','#16a34a','#d97706','#dc2626','#7c3aed','#8899aa','#3b82f6','#16a34a']
+						backgroundColor: navy,
+						hoverBackgroundColor: '#1e293b',
+						borderRadius: 0,
+						barPercentage: 0.6
 					}]
 				},
 				options: {
 					responsive: true,
 					maintainAspectRatio: false,
 					plugins: { legend: { display: false } },
-					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false } } }
+					scales: axisOpts
 				}
 			});
 		})();
@@ -372,16 +382,16 @@ if ( ! $pdf_url ) {
 				data: {
 					labels: <?php echo wp_json_encode( $analytics['daily_labels'] ?? [] ); ?>,
 					datasets: [
-						{ label: 'Sessions', data: <?php echo wp_json_encode( $analytics['daily_sessions'] ?? [] ); ?>, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', fill: true, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 },
-						{ label: 'Users', data: <?php echo wp_json_encode( $analytics['daily_users'] ?? [] ); ?>, borderColor: '#16a34a', backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 2, pointHoverRadius: 5 }
+						{ label: 'Sessions', data: <?php echo wp_json_encode( $analytics['daily_sessions'] ?? [] ); ?>, borderColor: navy, backgroundColor: fillColor, fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
+						{ label: 'Users', data: <?php echo wp_json_encode( $analytics['daily_users'] ?? [] ); ?>, borderColor: gray, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, borderDash: [4, 3] }
 					]
 				},
 				options: {
 					responsive: true,
 					maintainAspectRatio: false,
 					interaction: { intersect: false, mode: 'index' },
-					plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } },
-					scales: { y: { beginAtZero: true, grid: { color: '#e2e8f0' } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } } }
+					plugins: { legend: legendOpts },
+					scales: axisOpts
 				}
 			});
 		})();

@@ -632,6 +632,12 @@
 	font-weight: 500;
 }
 
+.wham-td-mono {
+	font-family: var(--wham-font-mono);
+	font-size: 12px;
+	font-variant-numeric: tabular-nums;
+}
+
 .wham-dash-table code {
 	font-family: var(--wham-font-mono);
 	font-size: 12px;
