@@ -553,6 +553,20 @@ final class WHAM_Reports {
         }
         check_admin_referer( 'wham_generate_reports' );
 
+        // Register shutdown handler to catch fatal errors that try/catch can't.
+        $log_fn = [ $this, 'log_error' ];
+        register_shutdown_function( function () use ( $log_fn ) {
+            $error = error_get_last();
+            if ( $error && in_array( $error['type'], [ E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR ], true ) ) {
+                call_user_func( $log_fn, sprintf(
+                    "FATAL: %s in %s:%d",
+                    $error['message'],
+                    $error['file'],
+                    $error['line']
+                ) );
+            }
+        } );
+
         $period    = isset( $_POST['wham_report_period'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_report_period'] ) ) : '';
         $client_id = isset( $_POST['wham_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_client_id'] ) ) : '';
 
@@ -720,7 +734,7 @@ final class WHAM_Reports {
     /**
      * Log an error to a plugin-local file (works even with WP_DEBUG off).
      */
-    private function log_error( string $message ): void {
+    public function log_error( string $message ): void {
         $log_file = WHAM_REPORTS_PATH . 'error.log';
         $entry    = '[' . date( 'Y-m-d H:i:s' ) . '] ' . $message . "\n";
         file_put_contents( $log_file, $entry, FILE_APPEND | LOCK_EX );
