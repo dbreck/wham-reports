@@ -14,7 +14,6 @@
 defined( 'ABSPATH' ) || exit;
 
 $dashboard_url = home_url( '/client-dashboard/?report=' . intval( $report_id ) );
-$is_pro        = in_array( $tier, [ 'professional', 'premium' ], true );
 $first_name    = explode( ' ', $client_name )[0] ?? $client_name;
 
 // Extract report sections.
@@ -191,7 +190,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	</tr>
 
 	<!-- Plugin updates table (pro tier) -->
-	<?php if ( $is_pro && ! empty( $plugins_needing ) ) : ?>
+	<?php if ( wham_tier_has( $tier, 'maintenance_detail' ) && ! empty( $plugins_needing ) ) : ?>
 	<tr>
 		<td style="padding:12px 32px 20px 32px;">
 			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13px;">
@@ -213,7 +212,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<?php endif; ?>
 	<?php endif; ?>
 
-	<?php if ( $is_pro ) : ?>
+	<?php if ( wham_tier_has( $tier, 'gsc_aggregate' ) ) : ?>
 	<!-- ============================================================ -->
 	<!-- SECTION: SEARCH PERFORMANCE                                   -->
 	<!-- ============================================================ -->
@@ -285,7 +284,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	</tr>
 
 	<!-- GSC Trend Chart -->
-	<?php if ( ! empty( $chart_urls['gsc_trend'] ) ) : ?>
+	<?php if ( wham_tier_has( $tier, 'gsc_trend' ) && ! empty( $chart_urls['gsc_trend'] ) ) : ?>
 	<tr>
 		<td align="center" style="padding:16px 32px;">
 			<img src="<?php echo esc_url( $chart_urls['gsc_trend'] ); ?>" alt="Search trend chart" width="536" style="display:block;max-width:100%;height:auto;border:0;">
@@ -294,7 +293,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<?php endif; ?>
 
 	<!-- Top Queries Table -->
-	<?php if ( ! empty( $gsc_top_queries ) ) : ?>
+	<?php if ( wham_tier_has( $tier, 'gsc_top_queries' ) && ! empty( $gsc_top_queries ) ) : ?>
 	<tr>
 		<td style="padding:8px 32px 20px 32px;">
 			<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;margin:0 0 8px 0;">Top Search Queries</p>
@@ -319,7 +318,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<?php endif; ?>
 
 	<!-- Top Pages Table -->
-	<?php if ( ! empty( $gsc_top_pages ) ) : ?>
+	<?php if ( wham_tier_has( $tier, 'gsc_top_pages' ) && ! empty( $gsc_top_pages ) ) : ?>
 	<tr>
 		<td style="padding:0 32px 20px 32px;">
 			<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;margin:0 0 8px 0;">Top Pages</p>
@@ -341,7 +340,9 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	</tr>
 	<?php endif; ?>
 	<?php endif; /* gsc_error */ ?>
+	<?php endif; /* gsc_aggregate */ ?>
 
+	<?php if ( wham_tier_has( $tier, 'ga4_core' ) ) : ?>
 	<!-- ============================================================ -->
 	<!-- SECTION: WEBSITE TRAFFIC                                      -->
 	<!-- ============================================================ -->
@@ -407,7 +408,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	</tr>
 
 	<!-- Traffic Sources Chart -->
-	<?php if ( ! empty( $chart_urls['ga4_sources'] ) ) : ?>
+	<?php if ( wham_tier_has( $tier, 'ga4_sources' ) && ! empty( $chart_urls['ga4_sources'] ) ) : ?>
 	<tr>
 		<td align="center" style="padding:16px 32px;">
 			<img src="<?php echo esc_url( $chart_urls['ga4_sources'] ); ?>" alt="Traffic sources chart" width="536" style="display:block;max-width:100%;height:auto;border:0;">
@@ -416,7 +417,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<?php endif; ?>
 
 	<!-- Sessions Trend Chart -->
-	<?php if ( ! empty( $chart_urls['ga4_trend'] ) ) : ?>
+	<?php if ( wham_tier_has( $tier, 'ga4_trend' ) && ! empty( $chart_urls['ga4_trend'] ) ) : ?>
 	<tr>
 		<td align="center" style="padding:0 32px 16px 32px;">
 			<img src="<?php echo esc_url( $chart_urls['ga4_trend'] ); ?>" alt="Sessions trend chart" width="536" style="display:block;max-width:100%;height:auto;border:0;">
@@ -425,7 +426,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<?php endif; ?>
 
 	<!-- Top Landing Pages -->
-	<?php if ( ! empty( $ga4_pages ) ) : ?>
+	<?php if ( wham_tier_has( $tier, 'ga4_landing_pages' ) && ! empty( $ga4_pages ) ) : ?>
 	<tr>
 		<td style="padding:8px 32px 20px 32px;">
 			<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;margin:0 0 8px 0;">Top Landing Pages</p>
@@ -445,7 +446,7 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	</tr>
 	<?php endif; ?>
 	<?php endif; /* ga4_error */ ?>
-	<?php endif; /* is_pro */ ?>
+	<?php endif; /* ga4_core */ ?>
 
 	<!-- ============================================================ -->
 	<!-- CTA: VIEW REPORT ONLINE                                       -->

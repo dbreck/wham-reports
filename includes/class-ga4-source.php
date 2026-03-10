@@ -21,11 +21,6 @@ class GA4_Source {
      * @return array  Normalized analytics data.
      */
     public function collect( string $ga4_property_id, string $tier = 'basic' ): array {
-        // Basic tier doesn't get GA4 data per the framework.
-        if ( $tier === 'basic' ) {
-            return [ 'source' => 'skipped', 'reason' => 'GA4 not included in Basic tier.' ];
-        }
-
         if ( empty( $ga4_property_id ) ) {
             return $this->empty_result( 'No GA4 property ID configured for this client.' );
         }

@@ -83,72 +83,65 @@
         </table>
 
         <h2>Tier Configuration</h2>
-        <p class="description">Configure which report sections are included for each tier. Checked items will appear in client reports.</p>
+        <p class="description">Configure which report components are included for each tier. Data is always collected — these settings control what's shown in reports, emails, and the dashboard.</p>
 
         <?php
-        $tier_defaults = [
-            'basic' => [
-                'maintenance' => true,
-                'search'      => true,
-                'analytics'   => false,
-                'dev_hours'   => true,
-            ],
-            'professional' => [
-                'maintenance'       => true,
-                'maintenance_detail' => true,
-                'search'            => true,
-                'search_detail'     => true,
-                'analytics'         => true,
-                'dev_hours'         => true,
-            ],
-            'premium' => [
-                'maintenance'       => true,
-                'maintenance_detail' => true,
-                'search'            => true,
-                'search_detail'     => true,
-                'analytics'         => true,
-                'dev_hours'         => true,
-            ],
-        ];
-        $tier_config = json_decode( get_option( 'wham_tier_config', '' ), true ) ?: $tier_defaults;
-
-        $sections = [
-            'maintenance'        => [ 'label' => 'Updates & Maintenance', 'description' => 'WordPress core, plugin, and theme update summary' ],
-            'maintenance_detail' => [ 'label' => 'Maintenance Details', 'description' => 'Individual plugin update log with version numbers' ],
-            'search'             => [ 'label' => 'Search Console (Aggregate)', 'description' => 'Clicks, impressions, CTR, and average position' ],
-            'search_detail'      => [ 'label' => 'Search Console (Detailed)', 'description' => 'Top queries and pages with period comparison' ],
-            'analytics'          => [ 'label' => 'Google Analytics', 'description' => 'Sessions, users, bounce rate, traffic sources, top pages' ],
-            'dev_hours'          => [ 'label' => 'Dev Hours', 'description' => 'Monday.com time tracking summary' ],
-        ];
-
         $tiers = [ 'basic' => 'Basic', 'professional' => 'Professional', 'premium' => 'Premium' ];
+
+        $capability_groups = [
+            'Maintenance' => [
+                'maintenance'        => [ 'label' => 'WP / Plugins / PHP Summary', 'description' => 'WordPress version, plugin counts, PHP version' ],
+                'maintenance_detail' => [ 'label' => 'Plugin Update Table', 'description' => 'Individual plugin update log with version numbers' ],
+            ],
+            'Search Console' => [
+                'gsc_aggregate'   => [ 'label' => 'Aggregate Metrics', 'description' => 'Clicks, impressions, CTR, average position' ],
+                'gsc_comparison'  => [ 'label' => 'Month-over-Month Changes', 'description' => 'Percentage change vs prior period' ],
+                'gsc_top_queries' => [ 'label' => 'Top Search Queries', 'description' => 'Top queries table with clicks, impressions, CTR' ],
+                'gsc_top_pages'   => [ 'label' => 'Top Pages', 'description' => 'Top pages table with clicks and impressions' ],
+                'gsc_trend'       => [ 'label' => 'Daily Trend Chart', 'description' => 'Daily clicks and impressions line chart' ],
+            ],
+            'Google Analytics' => [
+                'ga4_core'          => [ 'label' => 'Core Metrics', 'description' => 'Sessions, users, pageviews, bounce rate' ],
+                'ga4_comparison'    => [ 'label' => 'Month-over-Month Changes', 'description' => 'Percentage change vs prior period' ],
+                'ga4_sources'       => [ 'label' => 'Traffic Sources', 'description' => 'Traffic sources breakdown chart and table' ],
+                'ga4_landing_pages' => [ 'label' => 'Top Landing Pages', 'description' => 'Landing pages table with sessions' ],
+                'ga4_trend'         => [ 'label' => 'Daily Trend Chart', 'description' => 'Daily sessions and users line chart' ],
+            ],
+        ];
         ?>
 
         <table class="widefat fixed" style="max-width: 800px;">
             <thead>
                 <tr>
-                    <th style="width: 40%;">Report Section</th>
+                    <th style="width: 45%;">Report Component</th>
                     <?php foreach ( $tiers as $tier_key => $tier_label ) : ?>
                         <th style="text-align: center;"><?php echo esc_html( $tier_label ); ?></th>
                     <?php endforeach; ?>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ( $sections as $section_key => $section ) : ?>
-                    <tr>
-                        <td>
-                            <strong><?php echo esc_html( $section['label'] ); ?></strong><br>
-                            <span class="description"><?php echo esc_html( $section['description'] ); ?></span>
+                <?php foreach ( $capability_groups as $group_label => $capabilities ) : ?>
+                    <tr style="background-color: #f0f0f1;">
+                        <td colspan="4" style="padding: 6px 12px;">
+                            <strong style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #1e1e1e;"><?php echo esc_html( $group_label ); ?></strong>
                         </td>
-                        <?php foreach ( $tiers as $tier_key => $tier_label ) : ?>
-                            <td style="text-align: center; vertical-align: middle;">
-                                <input type="checkbox"
-                                       name="wham_tier_config[<?php echo esc_attr( $tier_key ); ?>][<?php echo esc_attr( $section_key ); ?>]"
-                                       value="1"
-                                       <?php checked( ! empty( $tier_config[ $tier_key ][ $section_key ] ) ); ?> />
-                            </td>
-                        <?php endforeach; ?>
                     </tr>
+                    <?php foreach ( $capabilities as $cap_key => $cap ) : ?>
+                        <tr>
+                            <td style="padding-left: 24px;">
+                                <strong><?php echo esc_html( $cap['label'] ); ?></strong><br>
+                                <span class="description"><?php echo esc_html( $cap['description'] ); ?></span>
+                            </td>
+                            <?php foreach ( $tiers as $tier_key => $tier_label ) : ?>
+                                <td style="text-align: center; vertical-align: middle;">
+                                    <input type="checkbox"
+                                           name="wham_tier_capabilities[<?php echo esc_attr( $cap_key ); ?>][<?php echo esc_attr( $tier_key ); ?>]"
+                                           value="1"
+                                           <?php checked( \WHAM_Reports::tier_has( $tier_key, $cap_key ) ); ?> />
+                                </td>
+                            <?php endforeach; ?>
+                        </tr>
+                    <?php endforeach; ?>
                 <?php endforeach; ?>
             </tbody>
         </table>

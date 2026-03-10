@@ -67,39 +67,37 @@ class GSC_Source {
             'impressions_change' => $this->percent_change( $prev['impressions'] ?? 0, $aggregate['impressions'] ?? 0 ),
         ];
 
-        // Professional+ gets more detail.
-        if ( in_array( $tier, [ 'professional', 'premium' ], true ) ) {
-            // Top queries.
-            $top_queries = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date, [ 'query' ], 10 );
-            $result['top_queries'] = $this->format_rows( $top_queries['rows'] ?? [], 'query' );
+        // Detailed data (always collected; visibility controlled at render layer).
+        // Top queries.
+        $top_queries = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date, [ 'query' ], 10 );
+        $result['top_queries'] = $this->format_rows( $top_queries['rows'] ?? [], 'query' );
 
-            // Top pages.
-            $top_pages = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date, [ 'page' ], 5 );
-            $result['top_pages'] = $this->format_rows( $top_pages['rows'] ?? [], 'page' );
+        // Top pages.
+        $top_pages = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date, [ 'page' ], 5 );
+        $result['top_pages'] = $this->format_rows( $top_pages['rows'] ?? [], 'page' );
 
-            // Daily time series for charts.
-            $daily_current = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date, [ 'date' ], 31 );
-            if ( ! empty( $daily_current['rows'] ) ) {
-                $result['daily_clicks']      = [];
-                $result['daily_impressions'] = [];
-                $result['daily_labels']      = [];
-                foreach ( $daily_current['rows'] as $row ) {
-                    $date_str = $row['keys'][0] ?? '';
-                    $result['daily_labels'][]      = date( 'M j', strtotime( $date_str ) );
-                    $result['daily_clicks'][]      = (int) ( $row['clicks'] ?? 0 );
-                    $result['daily_impressions'][] = (int) ( $row['impressions'] ?? 0 );
-                }
+        // Daily time series for charts.
+        $daily_current = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date, [ 'date' ], 31 );
+        if ( ! empty( $daily_current['rows'] ) ) {
+            $result['daily_clicks']      = [];
+            $result['daily_impressions'] = [];
+            $result['daily_labels']      = [];
+            foreach ( $daily_current['rows'] as $row ) {
+                $date_str = $row['keys'][0] ?? '';
+                $result['daily_labels'][]      = date( 'M j', strtotime( $date_str ) );
+                $result['daily_clicks'][]      = (int) ( $row['clicks'] ?? 0 );
+                $result['daily_impressions'][] = (int) ( $row['impressions'] ?? 0 );
             }
+        }
 
-            // Previous period daily data.
-            $daily_prev = $this->query_search_analytics( $gsc_property, $token, $prev_start, $prev_end, [ 'date' ], 31 );
-            if ( ! empty( $daily_prev['rows'] ) ) {
-                $result['prev_daily_clicks']      = [];
-                $result['prev_daily_impressions'] = [];
-                foreach ( $daily_prev['rows'] as $row ) {
-                    $result['prev_daily_clicks'][]      = (int) ( $row['clicks'] ?? 0 );
-                    $result['prev_daily_impressions'][] = (int) ( $row['impressions'] ?? 0 );
-                }
+        // Previous period daily data.
+        $daily_prev = $this->query_search_analytics( $gsc_property, $token, $prev_start, $prev_end, [ 'date' ], 31 );
+        if ( ! empty( $daily_prev['rows'] ) ) {
+            $result['prev_daily_clicks']      = [];
+            $result['prev_daily_impressions'] = [];
+            foreach ( $daily_prev['rows'] as $row ) {
+                $result['prev_daily_clicks'][]      = (int) ( $row['clicks'] ?? 0 );
+                $result['prev_daily_impressions'][] = (int) ( $row['impressions'] ?? 0 );
             }
         }
 

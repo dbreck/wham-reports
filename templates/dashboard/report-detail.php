@@ -90,7 +90,7 @@ if ( ! $pdf_url ) {
 			</div>
 		</div>
 
-		<?php if ( $tier !== 'basic' && ! empty( $maintenance['plugin_details'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'maintenance_detail' ) && ! empty( $maintenance['plugin_details'] ) ) : ?>
 		<h4>Plugin Updates</h4>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
@@ -119,7 +119,7 @@ if ( ! $pdf_url ) {
 	<!-- Search Performance -->
 	<?php
 	$search_source = $search['source'] ?? '';
-	if ( $search_source !== 'skipped' && $search_source !== 'not_configured' ) :
+	if ( wham_tier_has( $tier, 'gsc_aggregate' ) && $search_source !== 'skipped' && $search_source !== 'not_configured' ) :
 		$search_comp = $search['comparison'] ?? [];
 		$prev_search = [
 			'clicks'      => $search_comp['prev_clicks'] ?? null,
@@ -158,14 +158,14 @@ if ( ! $pdf_url ) {
 			</div>
 		</div>
 
-		<?php if ( ! empty( $search['daily_labels'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_trend' ) && ! empty( $search['daily_labels'] ) ) : ?>
 		<h4>Search Trend</h4>
 		<div class="wham-chart-wrap">
 			<canvas id="wham-gsc-trend" height="280"></canvas>
 		</div>
 		<?php endif; ?>
 
-		<?php if ( ! empty( $search['top_queries'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_top_queries' ) && ! empty( $search['top_queries'] ) ) : ?>
 		<h4>Search Queries</h4>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
@@ -185,7 +185,7 @@ if ( ! $pdf_url ) {
 		</div>
 		<?php endif; ?>
 
-		<?php if ( ! empty( $search['top_pages'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_top_pages' ) && ! empty( $search['top_pages'] ) ) : ?>
 		<h4>Top Pages</h4>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
@@ -209,7 +209,7 @@ if ( ! $pdf_url ) {
 	<!-- Website Traffic -->
 	<?php
 	$analytics_source = $analytics['source'] ?? '';
-	if ( $analytics_source !== 'skipped' && $analytics_source !== 'error' ) :
+	if ( wham_tier_has( $tier, 'ga4_core' ) && $analytics_source !== 'skipped' && $analytics_source !== 'error' && $analytics_source !== 'not_configured' ) :
 		$prev_analytics = [
 			'sessions'    => $analytics['previous_sessions'] ?? null,
 			'users'       => $analytics['previous_users'] ?? null,
@@ -244,7 +244,7 @@ if ( ! $pdf_url ) {
 			</div>
 		</div>
 
-		<?php if ( ! empty( $analytics['traffic_sources'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'ga4_sources' ) && ! empty( $analytics['traffic_sources'] ) ) : ?>
 		<h4>Traffic Sources</h4>
 		<div class="wham-chart-wrap">
 			<canvas id="wham-ga4-sources" height="280"></canvas>
@@ -265,7 +265,7 @@ if ( ! $pdf_url ) {
 		</div>
 		<?php endif; ?>
 
-		<?php if ( ! empty( $analytics['daily_labels'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'ga4_trend' ) && ! empty( $analytics['daily_labels'] ) ) : ?>
 		<h4>Sessions &amp; Users Trend</h4>
 		<div class="wham-chart-wrap">
 			<canvas id="wham-ga4-trend" height="280"></canvas>
@@ -274,7 +274,7 @@ if ( ! $pdf_url ) {
 
 		<?php
 		$landing_pages = $analytics['top_pages'] ?? $analytics['top_landing_pages'] ?? [];
-		if ( ! empty( $landing_pages ) ) : ?>
+		if ( wham_tier_has( $tier, 'ga4_landing_pages' ) && ! empty( $landing_pages ) ) : ?>
 		<h4>Landing Pages</h4>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">

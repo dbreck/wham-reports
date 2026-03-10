@@ -266,6 +266,7 @@ $ga4_error       = $analytics['error'] ?? '';
 <div class="content">
 
 	<!-- Updates & Maintenance -->
+	<?php if ( wham_tier_has( $tier, 'maintenance' ) ) : ?>
 	<div class="section-title">Updates &amp; Maintenance</div>
 
 	<?php if ( $maint_error ) : ?>
@@ -290,7 +291,7 @@ $ga4_error       = $analytics['error'] ?? '';
 		</table>
 
 		<!-- Plugin updates detail -->
-		<?php if ( ! empty( $plugins_needing ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'maintenance_detail' ) && ! empty( $plugins_needing ) ) : ?>
 			<table class="data-table" style="margin-bottom:22px;">
 				<thead>
 					<tr>
@@ -312,8 +313,10 @@ $ga4_error       = $analytics['error'] ?? '';
 		<?php endif; ?>
 
 	<?php endif; ?>
+	<?php endif; /* maintenance */ ?>
 
 	<!-- Search & Discovery -->
+	<?php if ( wham_tier_has( $tier, 'gsc_aggregate' ) ) : ?>
 	<div class="section-title">Search &amp; Discovery</div>
 
 	<?php if ( $gsc_error ) : ?>
@@ -368,11 +371,12 @@ $ga4_error       = $analytics['error'] ?? '';
 		</table>
 
 		<!-- GSC Trend Chart -->
-		<?php if ( ! empty( $charts['gsc_trend'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_trend' ) && ! empty( $charts['gsc_trend'] ) ) : ?>
 			<?php echo wham_chart_img( $charts['gsc_trend'] ); ?>
 		<?php endif; ?>
 
 	<?php endif; ?>
+	<?php endif; /* gsc_aggregate */ ?>
 
 </div><!-- .content -->
 
@@ -392,7 +396,7 @@ $ga4_error       = $analytics['error'] ?? '';
 	<?php if ( ! $gsc_error ) : ?>
 
 		<!-- Top Search Queries -->
-		<?php if ( ! empty( $gsc_top_queries ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_top_queries' ) && ! empty( $gsc_top_queries ) ) : ?>
 			<div class="section-title">Top Search Queries</div>
 			<table class="data-table">
 				<thead>
@@ -419,7 +423,7 @@ $ga4_error       = $analytics['error'] ?? '';
 		<?php endif; ?>
 
 		<!-- Top Pages -->
-		<?php if ( ! empty( $gsc_top_pages ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_top_pages' ) && ! empty( $gsc_top_pages ) ) : ?>
 			<div class="section-title" style="margin-top:24px;">Top Pages</div>
 			<table class="data-table">
 				<thead>
@@ -456,6 +460,7 @@ $ga4_error       = $analytics['error'] ?? '';
 <!-- PAGE 3: Website Traffic (GA4)                                 -->
 <!-- ============================================================ -->
 
+<?php if ( wham_tier_has( $tier, 'ga4_core' ) ) : ?>
 <div style="page-break-before: always;"></div>
 
 <div class="content">
@@ -507,17 +512,17 @@ $ga4_error       = $analytics['error'] ?? '';
 		</table>
 
 		<!-- Traffic Sources Chart -->
-		<?php if ( ! empty( $charts['ga4_sources'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'ga4_sources' ) && ! empty( $charts['ga4_sources'] ) ) : ?>
 			<?php echo wham_chart_img( $charts['ga4_sources'] ); ?>
 		<?php endif; ?>
 
 		<!-- Sessions Trend Chart -->
-		<?php if ( ! empty( $charts['ga4_trend'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'ga4_trend' ) && ! empty( $charts['ga4_trend'] ) ) : ?>
 			<?php echo wham_chart_img( $charts['ga4_trend'] ); ?>
 		<?php endif; ?>
 
 		<!-- Top Landing Pages -->
-		<?php if ( ! empty( $ga4_pages ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'ga4_landing_pages' ) && ! empty( $ga4_pages ) ) : ?>
 			<table class="data-table" style="margin-top:8px;">
 				<thead>
 					<tr>
@@ -544,6 +549,7 @@ $ga4_error       = $analytics['error'] ?? '';
 <div class="footer-bar">
 	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH
 </div>
+<?php endif; /* ga4_core */ ?>
 
 </body>
 </html>

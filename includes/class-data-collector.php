@@ -130,13 +130,13 @@ class Data_Collector {
             $this->log( '  → GSC: not configured.' );
         }
 
-        // Category F: SEO & Traffic — GA4 (Professional+ only).
+        // Category F: SEO & Traffic — GA4 (always collected; visibility controlled at render).
         $ga4_property = $config['ga4_property'] ?? '';
-        if ( $ga4_property && in_array( $tier, [ 'professional', 'premium' ], true ) ) {
+        if ( $ga4_property ) {
             $report_data['analytics'] = $this->ga4->collect( $ga4_property, $tier );
             $this->log( '  → GA4 data collected.' );
         } else {
-            $report_data['analytics'] = [ 'source' => 'skipped', 'reason' => $tier === 'basic' ? 'Not included in Basic tier.' : 'GA4 property not mapped.' ];
+            $report_data['analytics'] = [ 'source' => 'not_configured', 'error' => 'GA4 property not mapped.' ];
         }
 
         // Category G: Dev Hours (all tiers).
@@ -147,43 +147,41 @@ class Data_Collector {
         $report_data['insights'] = Insights_Engine::generate( $report_data );
         $this->log( '  → Insights generated: ' . count( $report_data['insights']['wins'] ?? [] ) . ' wins, ' . count( $report_data['insights']['watch_items'] ?? [] ) . ' watch items.' );
 
-        // Generate chart images.
+        // Generate chart images (always; visibility controlled at render).
         $report_data['charts'] = [];
 
-        if ( in_array( $tier, [ 'professional', 'premium' ], true ) ) {
-            // GSC trend chart.
-            if ( ! empty( $report_data['search']['daily_labels'] ) ) {
-                $datasets = [
-                    [ 'label' => 'Clicks', 'data' => $report_data['search']['daily_clicks'] ?? [], 'borderColor' => '#3b82f6' ],
-                    [ 'label' => 'Impressions', 'data' => $report_data['search']['daily_impressions'] ?? [], 'borderColor' => '#16a34a' ],
-                ];
-                $report_data['charts']['gsc_trend'] = Chart_Generator::line_chart(
-                    $report_data['search']['daily_labels'],
-                    $datasets
-                );
-                $this->log( '  → GSC trend chart generated.' );
-            }
+        // GSC trend chart.
+        if ( ! empty( $report_data['search']['daily_labels'] ) ) {
+            $datasets = [
+                [ 'label' => 'Clicks', 'data' => $report_data['search']['daily_clicks'] ?? [], 'borderColor' => '#3b82f6' ],
+                [ 'label' => 'Impressions', 'data' => $report_data['search']['daily_impressions'] ?? [], 'borderColor' => '#16a34a' ],
+            ];
+            $report_data['charts']['gsc_trend'] = Chart_Generator::line_chart(
+                $report_data['search']['daily_labels'],
+                $datasets
+            );
+            $this->log( '  → GSC trend chart generated.' );
+        }
 
-            // GA4 traffic sources bar chart.
-            if ( ! empty( $report_data['analytics']['traffic_sources'] ) ) {
-                $labels = array_column( $report_data['analytics']['traffic_sources'], 'sessionDefaultChannelGroup' );
-                $values = array_map( 'intval', array_column( $report_data['analytics']['traffic_sources'], 'metric_0' ) );
-                $report_data['charts']['ga4_sources'] = Chart_Generator::bar_chart( $labels, $values );
-                $this->log( '  → GA4 sources chart generated.' );
-            }
+        // GA4 traffic sources bar chart.
+        if ( ! empty( $report_data['analytics']['traffic_sources'] ) ) {
+            $labels = array_column( $report_data['analytics']['traffic_sources'], 'sessionDefaultChannelGroup' );
+            $values = array_map( 'intval', array_column( $report_data['analytics']['traffic_sources'], 'metric_0' ) );
+            $report_data['charts']['ga4_sources'] = Chart_Generator::bar_chart( $labels, $values );
+            $this->log( '  → GA4 sources chart generated.' );
+        }
 
-            // GA4 sessions trend.
-            if ( ! empty( $report_data['analytics']['daily_labels'] ) ) {
-                $datasets = [
-                    [ 'label' => 'Sessions', 'data' => $report_data['analytics']['daily_sessions'] ?? [], 'borderColor' => '#3b82f6' ],
-                    [ 'label' => 'Users', 'data' => $report_data['analytics']['daily_users'] ?? [], 'borderColor' => '#16a34a' ],
-                ];
-                $report_data['charts']['ga4_trend'] = Chart_Generator::line_chart(
-                    $report_data['analytics']['daily_labels'],
-                    $datasets
-                );
-                $this->log( '  → GA4 trend chart generated.' );
-            }
+        // GA4 sessions trend.
+        if ( ! empty( $report_data['analytics']['daily_labels'] ) ) {
+            $datasets = [
+                [ 'label' => 'Sessions', 'data' => $report_data['analytics']['daily_sessions'] ?? [], 'borderColor' => '#3b82f6' ],
+                [ 'label' => 'Users', 'data' => $report_data['analytics']['daily_users'] ?? [], 'borderColor' => '#16a34a' ],
+            ];
+            $report_data['charts']['ga4_trend'] = Chart_Generator::line_chart(
+                $report_data['analytics']['daily_labels'],
+                $datasets
+            );
+            $this->log( '  → GA4 trend chart generated.' );
         }
 
         // Dev hours chart removed in v3.0 — dev hours no longer shown in reports.

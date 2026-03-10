@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WHAM Reports
  * Description: Automated monthly reporting for WHAM (Web Hosting And Maintenance) clients. Collects data from MainWP, Google Search Console, GA4, and Monday.com to generate PDF reports and a client dashboard.
- * Version: 3.1.0
+ * Version: 3.2.0
  * Author: Clear ph Design
  * Text Domain: wham-reports
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WHAM_REPORTS_VERSION', '3.1.0' );
+define( 'WHAM_REPORTS_VERSION', '3.2.0' );
 define( 'WHAM_REPORTS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WHAM_REPORTS_URL', plugin_dir_url( __FILE__ ) );
 define( 'WHAM_REPORTS_MONDAY_BOARD_ID', '9141194124' );
@@ -38,11 +38,53 @@ final class WHAM_Reports {
 
     private static ?self $instance = null;
 
+    /**
+     * Default tier capability matrix. Keys are capability names;
+     * values are arrays of [basic, professional, premium] booleans.
+     */
+    private const TIER_CAPABILITY_DEFAULTS = [
+        'maintenance'        => [ 'basic' => true,  'professional' => true,  'premium' => true ],
+        'maintenance_detail' => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+        'gsc_aggregate'      => [ 'basic' => true,  'professional' => true,  'premium' => true ],
+        'gsc_comparison'     => [ 'basic' => true,  'professional' => true,  'premium' => true ],
+        'gsc_top_queries'    => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+        'gsc_top_pages'      => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+        'gsc_trend'          => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+        'ga4_core'           => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+        'ga4_comparison'     => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+        'ga4_sources'        => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+        'ga4_landing_pages'  => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+        'ga4_trend'          => [ 'basic' => false, 'professional' => true,  'premium' => true ],
+    ];
+
     public static function instance(): self {
         if ( null === self::$instance ) {
             self::$instance = new self();
         }
         return self::$instance;
+    }
+
+    /**
+     * Check if a tier has a specific capability.
+     *
+     * @param string $tier       Client tier (basic, professional, premium).
+     * @param string $capability Capability key (e.g., 'ga4_core', 'gsc_top_queries').
+     * @return bool
+     */
+    public static function tier_has( string $tier, string $capability ): bool {
+        static $config = null;
+
+        if ( null === $config ) {
+            $stored = json_decode( get_option( 'wham_tier_capabilities', '' ), true );
+            $config = is_array( $stored ) ? $stored : [];
+        }
+
+        // Check stored config first, then fall back to defaults.
+        if ( isset( $config[ $capability ][ $tier ] ) ) {
+            return (bool) $config[ $capability ][ $tier ];
+        }
+
+        return self::TIER_CAPABILITY_DEFAULTS[ $capability ][ $tier ] ?? false;
     }
 
     private function __construct() {
@@ -90,6 +132,12 @@ final class WHAM_Reports {
 
         // Test email AJAX.
         add_action( 'wp_ajax_wham_test_email', [ $this, 'ajax_test_email' ] );
+
+        // Custom columns on All Reports list.
+        add_filter( 'manage_wham_report_posts_columns', [ $this, 'report_columns' ] );
+        add_action( 'manage_wham_report_posts_custom_column', [ $this, 'report_column_content' ], 10, 2 );
+        add_filter( 'manage_edit-wham_report_sortable_columns', [ $this, 'report_sortable_columns' ] );
+        add_action( 'pre_get_posts', [ $this, 'report_column_orderby' ] );
     }
 
     /* ------------------------------------------------------------------
@@ -276,9 +324,14 @@ final class WHAM_Reports {
         register_setting( 'wham_reports_settings', 'wham_sender_email' );
         register_setting( 'wham_reports_settings', 'wham_sender_name' );
 
-        // Tier configuration.
+        // Tier configuration (legacy — kept for backward compat).
         register_setting( 'wham_reports_settings', 'wham_tier_config', [
             'sanitize_callback' => [ $this, 'sanitize_tier_config' ],
+        ] );
+
+        // Granular tier capabilities (v3.2.0+).
+        register_setting( 'wham_reports_settings', 'wham_tier_capabilities', [
+            'sanitize_callback' => [ $this, 'sanitize_tier_capabilities' ],
         ] );
 
         // PDF settings.
@@ -391,7 +444,11 @@ final class WHAM_Reports {
     }
 
     public function admin_assets( string $hook ): void {
-        if ( strpos( $hook, 'wham-reports' ) === false ) {
+        // Load on WHAM admin pages and on the All Reports list (edit.php for wham_report).
+        $is_wham_page   = strpos( $hook, 'wham-reports' ) !== false;
+        $is_report_list = 'edit.php' === $hook && ( $_GET['post_type'] ?? '' ) === 'wham_report';
+
+        if ( ! $is_wham_page && ! $is_report_list ) {
             return;
         }
         wp_enqueue_style( 'wham-admin', WHAM_REPORTS_URL . 'assets/css/admin.css', [], WHAM_REPORTS_VERSION );
@@ -802,6 +859,124 @@ final class WHAM_Reports {
         return wp_json_encode( array_values( $excluded ) );
     }
 
+    /* ------------------------------------------------------------------
+     * Report List Columns (edit.php?post_type=wham_report)
+     * ----------------------------------------------------------------*/
+
+    public function report_columns( array $columns ): array {
+        $new = [];
+        $new['cb']        = $columns['cb'];
+        $new['title']     = 'Report';
+        $new['client']    = 'Client';
+        $new['period']    = 'Period';
+        $new['tier']      = 'Tier';
+        $new['pdf']       = 'PDF';
+        $new['actions']   = 'Actions';
+        $new['date']      = 'Generated';
+        return $new;
+    }
+
+    public function report_column_content( string $column, int $post_id ): void {
+        switch ( $column ) {
+            case 'client':
+                echo esc_html( get_post_meta( $post_id, '_wham_client_name', true ) ?: '—' );
+                break;
+
+            case 'period':
+                $period = get_post_meta( $post_id, '_wham_period', true );
+                echo $period ? esc_html( date( 'F Y', strtotime( $period . '-01' ) ) ) : '—';
+                break;
+
+            case 'tier':
+                $tier = get_post_meta( $post_id, '_wham_tier', true );
+                if ( $tier ) {
+                    $colors = [
+                        'basic'        => '#64748b',
+                        'professional' => '#2563eb',
+                        'premium'      => '#7c3aed',
+                    ];
+                    $bg = $colors[ $tier ] ?? '#64748b';
+                    printf(
+                        '<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:600;color:#fff;background:%s;">%s</span>',
+                        esc_attr( $bg ),
+                        esc_html( ucfirst( $tier ) )
+                    );
+                } else {
+                    echo '—';
+                }
+                break;
+
+            case 'pdf':
+                $pdf_url = get_post_meta( $post_id, '_wham_pdf_url', true );
+                if ( ! $pdf_url ) {
+                    $pdf_url = get_post_meta( $post_id, '_wham_pdf_url_editorial', true );
+                }
+                if ( ! $pdf_url ) {
+                    $pdf_url = get_post_meta( $post_id, '_wham_pdf_url_swiss', true );
+                }
+                echo $pdf_url
+                    ? '<a href="' . esc_url( $pdf_url ) . '" target="_blank">Download</a>'
+                    : '<span style="color:#94a3b8;">—</span>';
+                break;
+
+            case 'actions':
+                $report_id = $post_id;
+                $dashboard_url = home_url( '/client-dashboard/?report=' . $report_id );
+                echo '<a href="' . esc_url( $dashboard_url ) . '" target="_blank" style="margin-right:8px;">View</a>';
+
+                $test_email_url = admin_url( 'admin.php?page=wham-reports' );
+                echo '<a href="' . esc_url( $test_email_url ) . '">Email</a>';
+                break;
+        }
+    }
+
+    public function report_sortable_columns( array $columns ): array {
+        $columns['client'] = 'client';
+        $columns['period'] = 'period';
+        $columns['tier']   = 'tier';
+        return $columns;
+    }
+
+    public function report_column_orderby( \WP_Query $query ): void {
+        if ( ! is_admin() || ! $query->is_main_query() || $query->get( 'post_type' ) !== 'wham_report' ) {
+            return;
+        }
+
+        $orderby = $query->get( 'orderby' );
+        $meta_map = [
+            'client' => '_wham_client_name',
+            'period' => '_wham_period',
+            'tier'   => '_wham_tier',
+        ];
+
+        if ( isset( $meta_map[ $orderby ] ) ) {
+            $query->set( 'meta_key', $meta_map[ $orderby ] );
+            $query->set( 'orderby', 'meta_value' );
+        }
+    }
+
+    /**
+     * Sanitize the granular tier capabilities matrix.
+     */
+    public function sanitize_tier_capabilities( $input ): string {
+        if ( ! is_array( $input ) ) {
+            return '{}';
+        }
+
+        $valid_tiers        = [ 'basic', 'professional', 'premium' ];
+        $valid_capabilities = array_keys( self::TIER_CAPABILITY_DEFAULTS );
+        $sanitized          = [];
+
+        foreach ( $valid_capabilities as $cap ) {
+            $sanitized[ $cap ] = [];
+            foreach ( $valid_tiers as $tier ) {
+                $sanitized[ $cap ][ $tier ] = ! empty( $input[ $cap ][ $tier ] );
+            }
+        }
+
+        return wp_json_encode( $sanitized );
+    }
+
     /**
      * Get tier configuration (which sections are enabled per tier).
      */
@@ -845,3 +1020,14 @@ final class WHAM_Reports {
 
 // Boot the plugin.
 WHAM_Reports::instance();
+
+/**
+ * Global convenience function for tier capability checks.
+ *
+ * @param string $tier       Client tier (basic, professional, premium).
+ * @param string $capability Capability key (e.g., 'ga4_core', 'gsc_top_queries').
+ * @return bool
+ */
+function wham_tier_has( string $tier, string $capability ): bool {
+    return WHAM_Reports::tier_has( $tier, $capability );
+}

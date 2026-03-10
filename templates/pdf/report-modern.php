@@ -289,6 +289,7 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 <div class="content">
 
 	<!-- MAINTENANCE -->
+	<?php if ( wham_tier_has( $tier, 'maintenance' ) ) : ?>
 	<div class="section-bar">Site Maintenance</div>
 
 	<?php if ( $maint_error ) : ?>
@@ -314,7 +315,7 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 		</table>
 
 		<!-- Plugin detail table -->
-		<?php if ( ! empty( $plugins_needing_update ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'maintenance_detail' ) && ! empty( $plugins_needing_update ) ) : ?>
 			<table class="data-table">
 				<thead>
 					<tr>
@@ -336,8 +337,10 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 		<?php endif; ?>
 
 	<?php endif; ?>
+	<?php endif; /* maintenance */ ?>
 
 	<!-- SEARCH PERFORMANCE -->
+	<?php if ( wham_tier_has( $tier, 'gsc_aggregate' ) ) : ?>
 	<div class="section-bar" style="margin-top:10px;">Search Performance</div>
 
 	<?php if ( $gsc_error ) : ?>
@@ -384,11 +387,12 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 		</table>
 
 		<!-- GSC Trend Chart -->
-		<?php if ( ! empty( $charts['gsc_trend'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_trend' ) && ! empty( $charts['gsc_trend'] ) ) : ?>
 			<?php echo wham_chart_img( $charts['gsc_trend'] ); ?>
 		<?php endif; ?>
 
 	<?php endif; ?>
+	<?php endif; /* gsc_aggregate */ ?>
 
 </div><!-- .content -->
 
@@ -403,6 +407,7 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 <!-- PAGE 2: Search Query Table + Pages Table                      -->
 <!-- ============================================================ -->
 
+<?php if ( wham_tier_has( $tier, 'gsc_top_queries' ) || wham_tier_has( $tier, 'gsc_top_pages' ) ) : ?>
 <div style="page-break-before: always;"></div>
 
 <div class="content">
@@ -412,7 +417,7 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 	<?php if ( ! $gsc_error ) : ?>
 
 		<!-- Top Queries Table -->
-		<?php if ( ! empty( $gsc_top_queries ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_top_queries' ) && ! empty( $gsc_top_queries ) ) : ?>
 			<table class="data-table">
 				<thead>
 					<tr>
@@ -440,7 +445,7 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 		<?php endif; ?>
 
 		<!-- Top Pages Table -->
-		<?php if ( ! empty( $gsc_top_pages ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'gsc_top_pages' ) && ! empty( $gsc_top_pages ) ) : ?>
 			<table class="data-table" style="margin-top:12px;">
 				<thead>
 					<tr>
@@ -473,6 +478,7 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 <div class="footer-bar">
 	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
 </div>
+<?php endif; /* gsc_top_queries || gsc_top_pages */ ?>
 
 <div style="page-break-after: always;"></div>
 
@@ -480,6 +486,7 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 <!-- PAGE 3: Traffic KPIs + Charts + Landing Pages                 -->
 <!-- ============================================================ -->
 
+<?php if ( wham_tier_has( $tier, 'ga4_core' ) ) : ?>
 <div style="page-break-before: always;"></div>
 
 <div class="content">
@@ -530,19 +537,19 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 		</table>
 
 		<!-- Traffic Sources Chart -->
-		<?php if ( ! empty( $charts['ga4_sources'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'ga4_sources' ) && ! empty( $charts['ga4_sources'] ) ) : ?>
 			<div style="font-size:9pt;font-weight:bold;color:#0f172a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Traffic Sources</div>
 			<?php echo wham_chart_img( $charts['ga4_sources'] ); ?>
 		<?php endif; ?>
 
 		<!-- Sessions Trend Chart -->
-		<?php if ( ! empty( $charts['ga4_trend'] ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'ga4_trend' ) && ! empty( $charts['ga4_trend'] ) ) : ?>
 			<div style="font-size:9pt;font-weight:bold;color:#0f172a;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Sessions Trend</div>
 			<?php echo wham_chart_img( $charts['ga4_trend'] ); ?>
 		<?php endif; ?>
 
 		<!-- Top Landing Pages Table -->
-		<?php if ( ! empty( $ga4_pages ) ) : ?>
+		<?php if ( wham_tier_has( $tier, 'ga4_landing_pages' ) && ! empty( $ga4_pages ) ) : ?>
 			<table class="data-table">
 				<thead>
 					<tr>
@@ -571,6 +578,7 @@ $prev_position    = $gsc_comparison['prev_position'] ?? 0;
 <div class="footer-bar">
 	<span class="footer-brand">WHAM</span> &mdash; Web Hosting &amp; Maintenance by Clear pH &nbsp;&bull;&nbsp; <?php echo esc_html( $period_label ); ?>
 </div>
+<?php endif; /* ga4_core */ ?>
 
 </body>
 </html>
