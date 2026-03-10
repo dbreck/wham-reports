@@ -1,6 +1,6 @@
 /* ============================================================
    WHAM Reports — Client Dashboard
-   Swiss-inspired: minimal, generous whitespace, monochrome
+   Clean, structured layout with color accents
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -11,9 +11,18 @@
 	--wham-navy-mid: #1e293b;
 	--wham-navy-light: #334155;
 
-	/* Accents — used sparingly, only for change indicators */
+	/* Accents */
+	--wham-blue: #2563eb;
 	--wham-green: #059669;
+	--wham-amber: #d97706;
 	--wham-red: #dc2626;
+	--wham-purple: #7c3aed;
+
+	/* Light accent backgrounds */
+	--wham-blue-bg: #eff6ff;
+	--wham-green-bg: #ecfdf5;
+	--wham-amber-bg: #fffbeb;
+	--wham-purple-bg: #f5f3ff;
 
 	/* Neutrals */
 	--wham-gray-50: #f8fafc;
@@ -30,7 +39,8 @@
 	--wham-font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 	--wham-font-mono: 'DM Mono', 'SF Mono', 'Fira Code', Consolas, monospace;
 
-	/* Effects — minimal */
+	/* Effects */
+	--wham-radius: 8px;
 	--wham-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -42,7 +52,7 @@
 	max-width: 900px;
 	margin: 0 auto;
 	padding: 48px 24px;
-	font-family: var(--wham-font-body);
+	font-family: var(--wham-font-body) !important;
 	color: var(--wham-gray-900);
 	line-height: 1.55;
 	-webkit-font-smoothing: antialiased;
@@ -57,25 +67,30 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: flex-end;
-	margin-bottom: 48px;
+	margin-bottom: 40px;
 	padding-bottom: 20px;
 	border-bottom: 1px solid var(--wham-gray-200);
 }
 
-.wham-dash-header h1 {
-	font-family: var(--wham-font-body);
-	font-size: 28px;
-	font-weight: 700;
-	letter-spacing: -0.02em;
-	margin: 0 0 4px 0;
-	color: var(--wham-navy);
+.wham-dashboard h1,
+.wham-dashboard .wham-dash-header h1,
+.wham-dashboard .wham-detail-header h1 {
+	font-family: var(--wham-font-body) !important;
+	font-size: 24px !important;
+	font-weight: 700 !important;
+	letter-spacing: -0.02em !important;
+	margin: 0 0 4px 0 !important;
+	color: var(--wham-navy) !important;
+	line-height: 1.3 !important;
+	text-transform: none !important;
+	padding: 0 !important;
+	border: none !important;
 }
 
 .wham-dash-subtitle {
-	color: var(--wham-gray-400);
-	font-size: 13px;
+	color: var(--wham-gray-500);
+	font-size: 14px;
 	margin: 0;
-	letter-spacing: 0.02em;
 }
 
 .wham-dash-brand {
@@ -85,19 +100,19 @@
 
 .wham-dash-brand strong {
 	display: block;
-	font-family: var(--wham-font-body);
-	font-size: 20px;
-	font-weight: 700;
-	letter-spacing: 0.15em;
-	text-transform: uppercase;
-	color: var(--wham-navy);
+	font-family: var(--wham-font-body) !important;
+	font-size: 18px !important;
+	font-weight: 700 !important;
+	letter-spacing: 0.12em !important;
+	text-transform: uppercase !important;
+	color: var(--wham-navy) !important;
 }
 
 .wham-dash-brand span {
-	font-size: 8px;
-	text-transform: uppercase;
-	letter-spacing: 0.15em;
-	color: var(--wham-gray-400);
+	font-size: 9px !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.1em !important;
+	color: var(--wham-gray-400) !important;
 }
 
 /* ----------------------------------------------------------------
@@ -106,13 +121,15 @@
 
 .wham-client-switcher {
 	border: 1px solid var(--wham-gray-200);
-	padding: 16px 20px;
-	margin-bottom: 40px;
+	border-radius: var(--wham-radius);
+	padding: 14px 20px;
+	margin-bottom: 32px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	flex-wrap: wrap;
 	gap: 12px;
+	background: var(--wham-gray-50);
 }
 
 .wham-switcher-inner {
@@ -122,17 +139,16 @@
 }
 
 .wham-switcher-inner label {
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 600;
 	color: var(--wham-gray-500);
 	white-space: nowrap;
-	text-transform: uppercase;
-	letter-spacing: 0.1em;
 }
 
 .wham-switcher-inner select {
 	padding: 8px 32px 8px 12px;
 	border: 1px solid var(--wham-gray-300);
+	border-radius: 6px;
 	background: #fff;
 	font-family: var(--wham-font-body);
 	font-size: 14px;
@@ -148,7 +164,7 @@
 
 .wham-switcher-inner select:focus {
 	outline: none;
-	border-color: var(--wham-navy);
+	border-color: var(--wham-blue);
 }
 
 .wham-viewing-as {
@@ -163,12 +179,12 @@
 .wham-clear-filter {
 	margin-left: 8px;
 	font-size: 12px;
-	color: var(--wham-gray-500);
+	color: var(--wham-blue);
 	text-decoration: none;
 }
 
 .wham-clear-filter:hover {
-	color: var(--wham-navy);
+	text-decoration: underline;
 }
 
 /* ----------------------------------------------------------------
@@ -178,8 +194,8 @@
 .wham-summary-bar {
 	display: flex;
 	gap: 32px;
-	margin-bottom: 40px;
-	padding: 0 0 20px 0;
+	margin-bottom: 32px;
+	padding: 0 0 16px 0;
 	border-bottom: 1px solid var(--wham-gray-200);
 }
 
@@ -197,9 +213,9 @@
 }
 
 .wham-summary-lbl {
-	font-size: 9px;
+	font-size: 11px;
 	text-transform: uppercase;
-	letter-spacing: 0.15em;
+	letter-spacing: 0.08em;
 	color: var(--wham-gray-400);
 }
 
@@ -212,16 +228,16 @@
 	align-items: center;
 	padding: 9px 18px;
 	font-family: var(--wham-font-body);
-	font-size: 12px;
+	font-size: 13px;
 	font-weight: 600;
 	text-decoration: none;
 	border: 1px solid var(--wham-gray-300);
+	border-radius: 6px;
 	background: #fff;
 	color: var(--wham-gray-700);
 	cursor: pointer;
 	transition: all var(--wham-transition);
 	line-height: 1.4;
-	letter-spacing: 0.02em;
 }
 
 .wham-btn:hover {
@@ -254,7 +270,7 @@
 
 .wham-btn-sm {
 	padding: 6px 12px;
-	font-size: 11px;
+	font-size: 12px;
 }
 
 /* ----------------------------------------------------------------
@@ -264,19 +280,20 @@
 .wham-report-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-	gap: 1px;
-	background: var(--wham-gray-200);
-	border: 1px solid var(--wham-gray-200);
+	gap: 16px;
 }
 
 .wham-report-card {
 	background: #fff;
-	padding: 28px 24px;
-	transition: background var(--wham-transition);
+	border: 1px solid var(--wham-gray-200);
+	border-radius: var(--wham-radius);
+	padding: 24px;
+	transition: border-color var(--wham-transition), box-shadow var(--wham-transition);
 }
 
 .wham-report-card:hover {
-	background: var(--wham-gray-50);
+	border-color: var(--wham-gray-300);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .wham-report-card-header {
@@ -292,11 +309,11 @@
 }
 
 .wham-report-month {
-	font-family: var(--wham-font-body);
-	font-size: 20px;
-	font-weight: 700;
-	color: var(--wham-navy);
-	line-height: 1.2;
+	font-family: var(--wham-font-body) !important;
+	font-size: 18px !important;
+	font-weight: 700 !important;
+	color: var(--wham-navy) !important;
+	line-height: 1.2 !important;
 }
 
 .wham-report-year {
@@ -307,29 +324,28 @@
 
 /* Tier badges */
 .wham-report-tier {
-	font-size: 9px;
+	font-size: 10px;
 	text-transform: uppercase;
-	letter-spacing: 0.12em;
+	letter-spacing: 0.06em;
 	padding: 2px 8px;
 	font-weight: 600;
 	line-height: 1.4;
-	border: 1px solid var(--wham-gray-300);
+	border-radius: 4px;
+	border: 1px solid var(--wham-gray-200);
 	color: var(--wham-gray-500);
-}
-
-.wham-tier-basic {
-	border-color: var(--wham-gray-300);
-	color: var(--wham-gray-500);
+	background: var(--wham-gray-50);
 }
 
 .wham-tier-professional {
-	border-color: var(--wham-gray-300);
-	color: var(--wham-gray-500);
+	border-color: var(--wham-blue);
+	color: var(--wham-blue);
+	background: var(--wham-blue-bg);
 }
 
 .wham-tier-premium {
-	border-color: var(--wham-gray-300);
-	color: var(--wham-gray-500);
+	border-color: var(--wham-purple);
+	color: var(--wham-purple);
+	background: var(--wham-purple-bg);
 }
 
 .wham-report-client {
@@ -340,15 +356,14 @@
 }
 
 .wham-report-generated {
-	font-size: 11px;
+	font-size: 12px;
 	color: var(--wham-gray-400);
 	margin-bottom: 16px;
-	letter-spacing: 0.02em;
 }
 
 .wham-report-card-actions {
 	display: flex;
-	gap: 6px;
+	gap: 8px;
 }
 
 /* ----------------------------------------------------------------
@@ -359,18 +374,9 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: flex-end;
-	margin-bottom: 48px;
+	margin-bottom: 36px;
 	padding-bottom: 20px;
 	border-bottom: 1px solid var(--wham-gray-200);
-}
-
-.wham-detail-header h1 {
-	font-family: var(--wham-font-body);
-	font-size: 28px;
-	font-weight: 700;
-	letter-spacing: -0.02em;
-	margin: 4px 0 6px 0;
-	color: var(--wham-navy);
 }
 
 .wham-detail-header .wham-dash-subtitle {
@@ -384,97 +390,113 @@
 	padding-top: 8px;
 }
 
-.wham-pdf-buttons {
-	display: flex;
-	gap: 6px;
-	align-items: center;
-}
-
 .wham-back-link {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
-	font-size: 11px;
+	font-size: 12px;
 	color: var(--wham-gray-400);
 	text-decoration: none;
 	font-weight: 500;
 	text-transform: uppercase;
-	letter-spacing: 0.1em;
+	letter-spacing: 0.06em;
 	transition: color var(--wham-transition);
 }
 
 .wham-back-link:hover {
-	color: var(--wham-navy);
+	color: var(--wham-blue);
 }
 
 /* ----------------------------------------------------------------
-   Sections — Swiss: no cards, just spacing + thin rules
+   Sections — colored accent bar, clear separation
    ---------------------------------------------------------------- */
 
 .wham-dash-section {
-	padding: 0 0 40px 0;
-	margin-bottom: 40px;
-	border-bottom: 1px solid var(--wham-gray-200);
+	padding: 0;
+	margin-bottom: 36px;
 }
 
 .wham-dash-section:last-of-type {
-	border-bottom: none;
 	margin-bottom: 0;
-	padding-bottom: 0;
 }
 
-.wham-section-header {
+/* Section header: small colored bar + text */
+.wham-dashboard .wham-section-header,
+.wham-detail .wham-section-header {
 	display: flex;
 	align-items: center;
 	gap: 0;
-	margin-bottom: 32px;
-	padding-bottom: 12px;
-	border-bottom: 1px solid var(--wham-gray-200);
+	margin-bottom: 20px;
+	padding: 10px 16px;
+	border-left: 3px solid var(--wham-blue);
+	background: var(--wham-gray-50);
+	border-radius: 0 var(--wham-radius) var(--wham-radius) 0;
+	border-bottom: none;
 }
 
-/* Hide section icons in Swiss style */
-.wham-section-header svg {
-	display: none;
+/* Section title — small, clean, sans-serif */
+.wham-dashboard .wham-section-header h3,
+.wham-detail .wham-section-header h3 {
+	font-family: var(--wham-font-body) !important;
+	font-size: 13px !important;
+	font-weight: 700 !important;
+	color: var(--wham-navy) !important;
+	letter-spacing: 0.06em !important;
+	text-transform: uppercase !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	border: none !important;
+	line-height: 1.4 !important;
 }
 
-/* Section title — Swiss: uppercase, wide tracking, clean */
-.wham-section-header h3 {
-	font-family: var(--wham-font-body);
-	font-size: 13px;
-	font-weight: 700;
-	color: var(--wham-navy);
-	letter-spacing: 0.15em;
-	text-transform: uppercase;
-	margin: 0;
-	padding: 0;
-	border: none;
+/* Per-section accent colors */
+.wham-dash-section:nth-of-type(1) .wham-section-header { border-left-color: var(--wham-green); }
+.wham-dash-section:nth-of-type(2) .wham-section-header { border-left-color: var(--wham-blue); }
+.wham-dash-section:nth-of-type(3) .wham-section-header { border-left-color: var(--wham-purple); }
+
+/* ----------------------------------------------------------------
+   Subsection headings — grouped content blocks
+   ---------------------------------------------------------------- */
+
+.wham-dashboard .wham-dash-section h4,
+.wham-detail .wham-dash-section h4 {
+	font-family: var(--wham-font-body) !important;
+	font-size: 11px !important;
+	font-weight: 600 !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.08em !important;
+	color: var(--wham-gray-500) !important;
+	margin: 0 !important;
+	padding: 10px 16px !important;
+	background: var(--wham-gray-50) !important;
+	border: 1px solid var(--wham-gray-200) !important;
+	border-radius: var(--wham-radius) var(--wham-radius) 0 0 !important;
+	line-height: 1.4 !important;
 }
 
-/* Subsection headings */
-.wham-dash-section h4 {
-	font-family: var(--wham-font-body);
-	font-size: 10px;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.15em;
-	color: var(--wham-gray-400);
-	margin: 40px 0 16px;
+/* Content block after subsection heading */
+.wham-dashboard .wham-dash-section h4 + .wham-chart-wrap,
+.wham-dashboard .wham-dash-section h4 + .wham-table-wrap {
+	border: 1px solid var(--wham-gray-200);
+	border-top: none;
+	border-radius: 0 0 var(--wham-radius) var(--wham-radius);
+	padding: 16px;
+	margin-bottom: 20px;
 }
 
-/* First h4 in a section needs less top margin */
-.wham-metric-grid + h4,
-.wham-section-header + h4 {
-	margin-top: 0;
+/* Space before first subsection after metrics */
+.wham-metric-grid + h4 {
+	margin-top: 24px !important;
 }
 
 /* ----------------------------------------------------------------
-   Metric Cards — Swiss: no backgrounds, bottom border only
+   Metric Cards — colored top accent, clean cards
    ---------------------------------------------------------------- */
 
 .wham-metric-grid {
 	display: grid;
-	gap: 16px;
-	margin-bottom: 8px;
+	gap: 12px;
+	margin-bottom: 4px;
 }
 
 .wham-metric-grid-3 {
@@ -486,30 +508,29 @@
 }
 
 .wham-metric {
-	background: transparent;
+	background: #fff;
 	padding: 20px 12px 16px;
 	text-align: center;
-	border: none;
-	border-bottom: 1px solid var(--wham-gray-200);
-	transition: border-color var(--wham-transition);
+	border: 1px solid var(--wham-gray-200);
+	border-radius: var(--wham-radius);
+	border-top: 3px solid var(--wham-gray-300);
+	transition: border-color var(--wham-transition), box-shadow var(--wham-transition);
 }
 
 .wham-metric:hover {
-	border-bottom-color: var(--wham-navy);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-/* Remove colored top borders — Swiss is monochrome */
-.wham-metric-blue,
-.wham-metric-green,
-.wham-metric-amber,
-.wham-metric-purple {
-	border-top: none;
-}
+/* Colored top borders per metric position */
+.wham-metric:nth-child(1) { border-top-color: var(--wham-blue); }
+.wham-metric:nth-child(2) { border-top-color: var(--wham-green); }
+.wham-metric:nth-child(3) { border-top-color: var(--wham-amber); }
+.wham-metric:nth-child(4) { border-top-color: var(--wham-purple); }
 
 .wham-metric-val {
 	display: block;
 	font-family: var(--wham-font-mono);
-	font-size: 28px;
+	font-size: 26px;
 	font-weight: 500;
 	font-variant-numeric: tabular-nums;
 	line-height: 1.1;
@@ -526,22 +547,22 @@
 
 .wham-metric-lbl {
 	display: block;
-	font-size: 9px;
+	font-size: 10px;
 	text-transform: uppercase;
-	letter-spacing: 0.15em;
+	letter-spacing: 0.08em;
 	color: var(--wham-gray-400);
-	margin-top: 10px;
+	margin-top: 8px;
 	font-weight: 500;
 }
 
 /* ----------------------------------------------------------------
-   Change Indicators — Swiss: just colored text, no pill background
+   Change Indicators — colored text, no background
    ---------------------------------------------------------------- */
 
 .wham-change {
 	display: inline-block;
 	font-family: var(--wham-font-mono);
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 500;
 	font-variant-numeric: tabular-nums;
 	padding: 0;
@@ -566,7 +587,7 @@
    ---------------------------------------------------------------- */
 
 .wham-chart-wrap {
-	margin: 24px 0;
+	margin: 20px 0;
 	padding: 0;
 }
 
@@ -576,13 +597,12 @@
 }
 
 /* ----------------------------------------------------------------
-   Tables — Swiss: minimal headers, no background, 2px navy rule
+   Tables — clean headers, subtle striping
    ---------------------------------------------------------------- */
 
 .wham-table-wrap {
 	overflow-x: auto;
 	-webkit-overflow-scrolling: touch;
-	border: none;
 }
 
 .wham-dash-table {
@@ -593,21 +613,21 @@
 
 .wham-dash-table th {
 	text-align: left;
-	font-family: var(--wham-font-body);
-	font-weight: 700;
+	font-family: var(--wham-font-body) !important;
+	font-weight: 600 !important;
 	padding: 10px 12px;
-	background: none;
-	border-bottom: 2px solid var(--wham-navy);
-	font-size: 9px;
-	text-transform: uppercase;
-	letter-spacing: 0.15em;
-	color: var(--wham-navy);
+	background: var(--wham-gray-50);
+	border-bottom: 2px solid var(--wham-gray-300);
+	font-size: 11px !important;
+	text-transform: uppercase !important;
+	letter-spacing: 0.06em !important;
+	color: var(--wham-gray-500) !important;
 	white-space: nowrap;
 }
 
 .wham-dash-table td {
 	padding: 10px 12px;
-	border-bottom: 1px solid var(--wham-gray-200);
+	border-bottom: 1px solid var(--wham-gray-100);
 	color: var(--wham-gray-700);
 	font-variant-numeric: tabular-nums;
 }
@@ -644,26 +664,30 @@
 	color: var(--wham-gray-600);
 }
 
-/* Status badges — Swiss: minimal */
+/* Status badges */
 .wham-status-badge {
 	display: inline-block;
-	font-size: 9px;
+	font-size: 10px;
 	font-weight: 600;
 	text-transform: uppercase;
-	letter-spacing: 0.1em;
-	padding: 2px 6px;
-	border: 1px solid var(--wham-gray-300);
+	letter-spacing: 0.04em;
+	padding: 2px 8px;
+	border-radius: 4px;
+	border: 1px solid var(--wham-gray-200);
 	color: var(--wham-gray-500);
+	background: var(--wham-gray-50);
 }
 
 .wham-status-good {
 	border-color: var(--wham-green);
 	color: var(--wham-green);
+	background: var(--wham-green-bg);
 }
 
 .wham-status-warning {
-	border-color: #d97706;
-	color: #d97706;
+	border-color: var(--wham-amber);
+	color: var(--wham-amber);
+	background: var(--wham-amber-bg);
 }
 
 /* ----------------------------------------------------------------
@@ -673,6 +697,7 @@
 .wham-dash-notice {
 	padding: 24px;
 	border: 1px solid var(--wham-gray-200);
+	border-radius: var(--wham-radius);
 	text-align: center;
 	font-size: 13px;
 	color: var(--wham-gray-500);
@@ -682,6 +707,7 @@
 	padding: 80px 24px;
 	text-align: center;
 	border: 1px solid var(--wham-gray-200);
+	border-radius: var(--wham-radius);
 }
 
 .wham-empty-icon {
@@ -689,13 +715,18 @@
 	opacity: 0.4;
 }
 
-.wham-dash-empty h3,
-.wham-dash-empty h4 {
-	font-family: var(--wham-font-body);
-	font-size: 16px;
-	font-weight: 700;
-	color: var(--wham-gray-600);
-	margin: 0 0 8px 0;
+.wham-dashboard .wham-dash-empty h3,
+.wham-dashboard .wham-dash-empty h4 {
+	font-family: var(--wham-font-body) !important;
+	font-size: 16px !important;
+	font-weight: 700 !important;
+	color: var(--wham-gray-600) !important;
+	margin: 0 0 8px 0 !important;
+	text-transform: none !important;
+	letter-spacing: normal !important;
+	padding: 0 !important;
+	background: none !important;
+	border: none !important;
 }
 
 .wham-dash-empty p {
@@ -716,6 +747,7 @@
 	max-width: 400px;
 	margin: 48px auto;
 	border: 1px solid var(--wham-gray-200);
+	border-radius: var(--wham-radius);
 }
 
 .wham-login-icon {
@@ -723,12 +755,12 @@
 	opacity: 0.4;
 }
 
-.wham-dash-login h2 {
-	font-family: var(--wham-font-body);
-	font-size: 22px;
-	font-weight: 700;
-	margin: 0 0 8px 0;
-	color: var(--wham-navy);
+.wham-dashboard .wham-dash-login h2 {
+	font-family: var(--wham-font-body) !important;
+	font-size: 22px !important;
+	font-weight: 700 !important;
+	margin: 0 0 8px 0 !important;
+	color: var(--wham-navy) !important;
 }
 
 .wham-dash-login p {
@@ -738,7 +770,7 @@
 }
 
 /* ----------------------------------------------------------------
-   Animations — Swiss: subtle, optional
+   Animations
    ---------------------------------------------------------------- */
 
 @keyframes wham-fade-up {
@@ -764,7 +796,7 @@
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 12px;
-		margin-bottom: 32px;
+		margin-bottom: 28px;
 	}
 
 	.wham-dash-brand {
@@ -781,10 +813,6 @@
 
 	.wham-metric-grid-4 {
 		grid-template-columns: repeat(2, 1fr);
-	}
-
-	.wham-pdf-buttons {
-		flex-wrap: wrap;
 	}
 
 	.wham-report-grid {
@@ -811,18 +839,18 @@
 		min-width: unset;
 	}
 
-	.wham-dash-header h1,
-	.wham-detail-header h1 {
-		font-size: 22px;
+	.wham-dashboard h1,
+	.wham-dashboard .wham-dash-header h1,
+	.wham-dashboard .wham-detail-header h1 {
+		font-size: 20px !important;
 	}
 
 	.wham-dash-section {
-		margin-bottom: 32px;
-		padding-bottom: 32px;
+		margin-bottom: 28px;
 	}
 
 	.wham-metric-val {
-		font-size: 22px;
+		font-size: 20px;
 	}
 }
 
@@ -833,7 +861,7 @@
 	}
 
 	.wham-metric-val {
-		font-size: 20px;
+		font-size: 18px;
 	}
 
 	.wham-report-card-actions {
