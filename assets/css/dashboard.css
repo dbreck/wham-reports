@@ -461,7 +461,7 @@
 .wham-dashboard .wham-dash-section h4,
 .wham-detail .wham-dash-section h4 {
 	font-family: var(--wham-font-body) !important;
-	font-size: 11px !important;
+	font-size: 14px !important;
 	font-weight: 600 !important;
 	text-transform: uppercase !important;
 	letter-spacing: 0.08em !important;

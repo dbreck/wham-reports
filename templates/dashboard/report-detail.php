@@ -301,19 +301,25 @@ if ( ! $pdf_url ) {
 	</div>
 	<?php endif; ?>
 
-	<!-- Chart.js — monochrome Swiss palette -->
+	<!-- Chart.js — muted color palette -->
 	<script>
 	document.addEventListener('DOMContentLoaded', function() {
-		var navy = '#0f172a';
-		var gray = '#94a3b8';
+		var blue    = '#5b8def';
+		var green   = '#4eba8b';
+		var amber   = '#e0a458';
+		var purple  = '#9b8ec4';
+		var rose    = '#d47c8a';
+		var teal    = '#5bb5b5';
+		var slate   = '#7e8fa6';
+		var peach   = '#d9967a';
 		var gridColor = '#e2e8f0';
-		var fillColor = 'rgba(15,23,42,0.06)';
+		var textColor = '#64748b';
 
 		var axisOpts = {
-			y: { beginAtZero: true, grid: { color: gridColor, drawBorder: false }, ticks: { font: { size: 11, family: "'DM Mono', monospace" }, color: gray } },
-			x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 11, family: "'DM Mono', monospace" }, color: gray } }
+			y: { beginAtZero: true, grid: { color: gridColor, drawBorder: false }, ticks: { font: { size: 11, family: "'DM Mono', monospace" }, color: textColor } },
+			x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 11, family: "'DM Mono', monospace" }, color: textColor } }
 		};
-		var legendOpts = { position: 'top', labels: { usePointStyle: true, boxWidth: 6, font: { size: 11, family: "'DM Sans', sans-serif" }, color: navy, padding: 20 } };
+		var legendOpts = { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 12, family: "'DM Sans', sans-serif" }, color: '#334155', padding: 20 } };
 
 		// GSC Trend
 		(function() {
@@ -324,8 +330,8 @@ if ( ! $pdf_url ) {
 				data: {
 					labels: <?php echo wp_json_encode( $search['daily_labels'] ?? [] ); ?>,
 					datasets: [
-						{ label: 'Clicks', data: <?php echo wp_json_encode( $search['daily_clicks'] ?? [] ); ?>, borderColor: navy, backgroundColor: fillColor, fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
-						{ label: 'Impressions', data: <?php echo wp_json_encode( $search['daily_impressions'] ?? [] ); ?>, borderColor: gray, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, borderDash: [4, 3] }
+						{ label: 'Clicks', data: <?php echo wp_json_encode( $search['daily_clicks'] ?? [] ); ?>, borderColor: blue, backgroundColor: 'rgba(91,141,239,0.1)', fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 5, borderWidth: 2.5 },
+						{ label: 'Impressions', data: <?php echo wp_json_encode( $search['daily_impressions'] ?? [] ); ?>, borderColor: green, backgroundColor: 'rgba(78,186,139,0.06)', fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 5, borderWidth: 2 }
 					]
 				},
 				options: {
@@ -358,10 +364,9 @@ if ( ! $pdf_url ) {
 					labels: <?php echo wp_json_encode( $source_labels ); ?>,
 					datasets: [{
 						data: <?php echo wp_json_encode( $source_values ); ?>,
-						backgroundColor: navy,
-						hoverBackgroundColor: '#1e293b',
-						borderRadius: 0,
-						barPercentage: 0.6
+						backgroundColor: [blue, green, amber, purple, teal, rose, slate, peach],
+						borderRadius: 4,
+						barPercentage: 0.65
 					}]
 				},
 				options: {
@@ -382,8 +387,8 @@ if ( ! $pdf_url ) {
 				data: {
 					labels: <?php echo wp_json_encode( $analytics['daily_labels'] ?? [] ); ?>,
 					datasets: [
-						{ label: 'Sessions', data: <?php echo wp_json_encode( $analytics['daily_sessions'] ?? [] ); ?>, borderColor: navy, backgroundColor: fillColor, fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
-						{ label: 'Users', data: <?php echo wp_json_encode( $analytics['daily_users'] ?? [] ); ?>, borderColor: gray, backgroundColor: 'transparent', fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 4, borderWidth: 1.5, borderDash: [4, 3] }
+						{ label: 'Sessions', data: <?php echo wp_json_encode( $analytics['daily_sessions'] ?? [] ); ?>, borderColor: purple, backgroundColor: 'rgba(155,142,196,0.1)', fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 5, borderWidth: 2.5 },
+						{ label: 'Users', data: <?php echo wp_json_encode( $analytics['daily_users'] ?? [] ); ?>, borderColor: teal, backgroundColor: 'rgba(91,181,181,0.06)', fill: true, tension: 0.35, pointRadius: 2, pointHoverRadius: 5, borderWidth: 2 }
 					]
 				},
 				options: {
