@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WHAM Reports
  * Description: Automated monthly reporting for WHAM (Web Hosting And Maintenance) clients. Collects data from MainWP, Google Search Console, GA4, and Monday.com to generate PDF reports and a client dashboard.
- * Version: 3.2.1
+ * Version: 3.2.2
  * Author: Clear ph Design
  * Text Domain: wham-reports
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WHAM_REPORTS_VERSION', '3.2.1' );
+define( 'WHAM_REPORTS_VERSION', '3.2.2' );
 define( 'WHAM_REPORTS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WHAM_REPORTS_URL', plugin_dir_url( __FILE__ ) );
 define( 'WHAM_REPORTS_MONDAY_BOARD_ID', '9141194124' );
@@ -624,6 +624,9 @@ final class WHAM_Reports {
             }
         } );
 
+        // Extend execution time — report generation involves many API calls.
+        @set_time_limit( 600 );
+
         $period     = isset( $_POST['wham_report_period'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_report_period'] ) ) : '';
         $client_ids = isset( $_POST['wham_client_ids'] ) && is_array( $_POST['wham_client_ids'] )
             ? array_map( 'sanitize_text_field', wp_unslash( $_POST['wham_client_ids'] ) )
@@ -631,26 +634,29 @@ final class WHAM_Reports {
 
         // Buffer any stray output so wp_redirect headers aren't blocked.
         ob_start();
-        try {
-            if ( count( $client_ids ) === 1 ) {
-                // Single client selected.
-                $this->run_report_generation( $period, $client_ids[0] );
-            } elseif ( ! empty( $client_ids ) ) {
-                // Multiple clients selected — generate each.
-                require_once WHAM_REPORTS_PATH . 'includes/class-data-collector.php';
-                $collector = new \WHAM_Reports\Data_Collector();
-                foreach ( $client_ids as $cid ) {
-                    $collector->generate_single_report( $cid, $period );
-                    usleep( 500000 ); // 0.5s pause for API rate limits.
+
+        $generated = 0;
+
+        if ( ! empty( $client_ids ) ) {
+            require_once WHAM_REPORTS_PATH . 'includes/class-data-collector.php';
+            $collector = new \WHAM_Reports\Data_Collector();
+
+            foreach ( $client_ids as $cid ) {
+                try {
+                    $result = $collector->generate_single_report( $cid, $period );
+                    if ( ( $result['status'] ?? '' ) === 'success' ) {
+                        $generated++;
+                    }
+                } catch ( \Throwable $e ) {
+                    $this->log_error( "Report generation error for client {$cid}: " . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() );
                 }
+                usleep( 500000 ); // 0.5s pause for API rate limits.
             }
-        } catch ( \Throwable $e ) {
-            $this->log_error( 'Report generation error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() );
         }
+
         ob_end_clean();
 
-        $count    = count( $client_ids );
-        $redirect = admin_url( 'admin.php?page=wham-reports&generated=' . ( $count === 1 ? 'single' : $count ) );
+        $redirect = admin_url( 'admin.php?page=wham-reports&generated=' . $generated );
         wp_redirect( $redirect );
         exit;
     }
