@@ -558,7 +558,11 @@ final class WHAM_Reports {
 
         // Buffer any stray output so wp_redirect headers aren't blocked.
         ob_start();
-        $this->run_report_generation( $period, $client_id );
+        try {
+            $this->run_report_generation( $period, $client_id );
+        } catch ( \Throwable $e ) {
+            $this->log_error( 'Report generation error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() );
+        }
         ob_end_clean();
 
         $redirect = admin_url( 'admin.php?page=wham-reports&generated=' . ( $client_id ? 'single' : '1' ) );
@@ -584,7 +588,11 @@ final class WHAM_Reports {
         $collector = new \WHAM_Reports\Data_Collector();
 
         ob_start();
-        $collector->generate_single_report( $client_id, $period );
+        try {
+            $collector->generate_single_report( $client_id, $period );
+        } catch ( \Throwable $e ) {
+            $this->log_error( 'Single report generation error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() );
+        }
         ob_end_clean();
 
         wp_redirect( admin_url( 'admin.php?page=wham-reports&generated=single' ) );
@@ -707,6 +715,15 @@ final class WHAM_Reports {
         } else {
             wp_send_json_error( 'wp_mail() failed. Check your mail configuration.' );
         }
+    }
+
+    /**
+     * Log an error to a plugin-local file (works even with WP_DEBUG off).
+     */
+    private function log_error( string $message ): void {
+        $log_file = WHAM_REPORTS_PATH . 'error.log';
+        $entry    = '[' . date( 'Y-m-d H:i:s' ) . '] ' . $message . "\n";
+        file_put_contents( $log_file, $entry, FILE_APPEND | LOCK_EX );
     }
 
     /* ------------------------------------------------------------------
