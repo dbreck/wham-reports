@@ -27,6 +27,7 @@ class GitHub_Updater {
 
 		add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_for_update' ] );
 		add_filter( 'plugins_api', [ $this, 'plugin_info' ], 20, 3 );
+		add_filter( 'upgrader_pre_install', [ $this, 'pre_install' ], 10, 2 );
 		add_filter( 'upgrader_post_install', [ $this, 'post_install' ], 10, 3 );
 
 		// AJAX handler for "Check for updates" link.
@@ -183,8 +184,30 @@ class GitHub_Updater {
 	}
 
 	/**
-	 * After install, rename the extracted folder to match the plugin slug.
-	 * Only needed for zipball fallback — release assets should already have the right structure.
+	 * Before install, back up vendor/ so the small release zip doesn't delete it.
+	 * Vendor contains DomPDF and Google API client (installed via Composer on server).
+	 */
+	public function pre_install( $response, $hook_extra ) {
+		if ( ! isset( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->plugin_file ) {
+			return $response;
+		}
+
+		$vendor_dir = WP_PLUGIN_DIR . '/' . $this->slug . '/vendor';
+		$backup_dir = WP_CONTENT_DIR . '/upgrade/wham-vendor-backup';
+
+		if ( is_dir( $vendor_dir ) ) {
+			global $wp_filesystem;
+			if ( is_dir( $backup_dir ) ) {
+				$wp_filesystem->delete( $backup_dir, true );
+			}
+			$wp_filesystem->move( $vendor_dir, $backup_dir );
+		}
+
+		return $response;
+	}
+
+	/**
+	 * After install, restore vendor/ and fix the folder name if needed.
 	 */
 	public function post_install( $response, $hook_extra, $result ) {
 		if ( ! isset( $hook_extra['plugin'] ) || $hook_extra['plugin'] !== $this->plugin_file ) {
@@ -202,12 +225,53 @@ class GitHub_Updater {
 			$result['destination'] = $plugin_dir;
 		}
 
+		// Restore vendor/ backup (merge: keep zip's vendor files, restore backup for missing ones).
+		$backup_dir = WP_CONTENT_DIR . '/upgrade/wham-vendor-backup';
+		$vendor_dir = $plugin_dir . '/vendor';
+
+		if ( is_dir( $backup_dir ) ) {
+			if ( ! is_dir( $vendor_dir ) ) {
+				$wp_filesystem->move( $backup_dir, $vendor_dir );
+			} else {
+				// Zip included partial vendor — merge backup into it.
+				$this->merge_directories( $backup_dir, $vendor_dir );
+				$wp_filesystem->delete( $backup_dir, true );
+			}
+		}
+
 		// Re-activate if it was active.
 		if ( is_plugin_active( $this->plugin_file ) ) {
 			activate_plugin( $this->plugin_file );
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Recursively merge source directory into destination (source files don't overwrite existing).
+	 */
+	private function merge_directories( string $source, string $dest ): void {
+		global $wp_filesystem;
+
+		$items = $wp_filesystem->dirlist( $source );
+		if ( ! is_array( $items ) ) {
+			return;
+		}
+
+		foreach ( $items as $name => $info ) {
+			$src_path  = $source . '/' . $name;
+			$dest_path = $dest . '/' . $name;
+
+			if ( 'd' === $info['type'] ) {
+				if ( ! is_dir( $dest_path ) ) {
+					$wp_filesystem->move( $src_path, $dest_path );
+				} else {
+					$this->merge_directories( $src_path, $dest_path );
+				}
+			} elseif ( ! file_exists( $dest_path ) ) {
+				$wp_filesystem->move( $src_path, $dest_path );
+			}
+		}
 	}
 
 	/**
