@@ -624,19 +624,33 @@ final class WHAM_Reports {
             }
         } );
 
-        $period    = isset( $_POST['wham_report_period'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_report_period'] ) ) : '';
-        $client_id = isset( $_POST['wham_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_client_id'] ) ) : '';
+        $period     = isset( $_POST['wham_report_period'] ) ? sanitize_text_field( wp_unslash( $_POST['wham_report_period'] ) ) : '';
+        $client_ids = isset( $_POST['wham_client_ids'] ) && is_array( $_POST['wham_client_ids'] )
+            ? array_map( 'sanitize_text_field', wp_unslash( $_POST['wham_client_ids'] ) )
+            : [];
 
         // Buffer any stray output so wp_redirect headers aren't blocked.
         ob_start();
         try {
-            $this->run_report_generation( $period, $client_id );
+            if ( count( $client_ids ) === 1 ) {
+                // Single client selected.
+                $this->run_report_generation( $period, $client_ids[0] );
+            } elseif ( ! empty( $client_ids ) ) {
+                // Multiple clients selected — generate each.
+                require_once WHAM_REPORTS_PATH . 'includes/class-data-collector.php';
+                $collector = new \WHAM_Reports\Data_Collector();
+                foreach ( $client_ids as $cid ) {
+                    $collector->generate_single_report( $cid, $period );
+                    usleep( 500000 ); // 0.5s pause for API rate limits.
+                }
+            }
         } catch ( \Throwable $e ) {
             $this->log_error( 'Report generation error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() );
         }
         ob_end_clean();
 
-        $redirect = admin_url( 'admin.php?page=wham-reports&generated=' . ( $client_id ? 'single' : '1' ) );
+        $count    = count( $client_ids );
+        $redirect = admin_url( 'admin.php?page=wham-reports&generated=' . ( $count === 1 ? 'single' : $count ) );
         wp_redirect( $redirect );
         exit;
     }

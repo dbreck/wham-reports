@@ -5,11 +5,16 @@
     <?php if ( isset( $_GET['generated'] ) ) : ?>
         <div class="notice notice-success is-dismissible">
             <p>
-                <?php if ( $_GET['generated'] === 'single' ) : ?>
-                    Report generated successfully for the selected client.
-                <?php else : ?>
-                    All reports generated successfully.
-                <?php endif; ?>
+                <?php
+                $gen = sanitize_text_field( $_GET['generated'] );
+                if ( $gen === 'single' ) {
+                    echo 'Report generated successfully for the selected client.';
+                } elseif ( is_numeric( $gen ) && (int) $gen > 1 ) {
+                    echo esc_html( (int) $gen ) . ' reports generated successfully.';
+                } else {
+                    echo 'Reports generated successfully.';
+                }
+                ?>
             </p>
         </div>
     <?php endif; ?>
@@ -66,21 +71,51 @@
                         </td>
                     </tr>
                     <tr>
-                        <th scope="row"><label for="wham_client_id">Client</label></th>
+                        <th scope="row"><label>Clients</label></th>
                         <td>
-                            <select name="wham_client_id" id="wham_client_id">
-                                <option value="">All Clients</option>
-                                <?php
-                                $client_map = \WHAM_Reports::get_client_map();
-                                foreach ( $client_map as $mid => $cfg ) {
-                                    printf(
-                                        '<option value="%s">%s</option>',
-                                        esc_attr( $mid ),
-                                        esc_html( $cfg['client_name'] ?? $mid )
-                                    );
-                                }
+                            <?php
+                            $client_map = \WHAM_Reports::get_client_map();
+                            // Sort alphabetically by client name.
+                            uasort( $client_map, function( $a, $b ) {
+                                return strcasecmp( $a['client_name'] ?? '', $b['client_name'] ?? '' );
+                            });
+                            $tier_colors = [
+                                'basic'        => '#64748b',
+                                'professional' => '#2563eb',
+                                'premium'      => '#7c3aed',
+                            ];
+                            ?>
+                            <label style="display:block;margin-bottom:8px;font-weight:600;">
+                                <input type="checkbox" id="wham-select-all" checked />
+                                Select All
+                            </label>
+                            <div style="max-height:200px;overflow-y:auto;border:1px solid #ddd;padding:8px 12px;border-radius:4px;background:#fafafa;">
+                                <?php foreach ( $client_map as $mid => $cfg ) :
+                                    $tier = $cfg['tier'] ?? 'basic';
+                                    $color = $tier_colors[ $tier ] ?? '#64748b';
                                 ?>
-                            </select>
+                                    <label style="display:block;padding:3px 0;cursor:pointer;">
+                                        <input type="checkbox" name="wham_client_ids[]" value="<?php echo esc_attr( $mid ); ?>" checked class="wham-client-cb" />
+                                        <?php echo esc_html( $cfg['client_name'] ?? $mid ); ?>
+                                        <span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600;color:#fff;background:<?php echo esc_attr( $color ); ?>;margin-left:4px;"><?php echo esc_html( ucfirst( $tier ) ); ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
+                            <script>
+                            (function(){
+                                var all = document.getElementById('wham-select-all');
+                                var cbs = document.querySelectorAll('.wham-client-cb');
+                                all.addEventListener('change', function(){
+                                    cbs.forEach(function(cb){ cb.checked = all.checked; });
+                                });
+                                // Uncheck "select all" if any individual is unchecked.
+                                cbs.forEach(function(cb){
+                                    cb.addEventListener('change', function(){
+                                        all.checked = Array.from(cbs).every(function(c){ return c.checked; });
+                                    });
+                                });
+                            })();
+                            </script>
                         </td>
                     </tr>
                 </table>
