@@ -45,7 +45,7 @@ Each source class has a `collect()` method returning a normalized array:
 
 ### PDF Generation
 
-`PDF_Generator` — renders PHP templates to HTML, converts via DomPDF (primary) or wkhtmltopdf (fallback). PDFs saved to `wp-content/uploads/wham-reports/{year}/`.
+`PDF_Generator` — renders PHP templates to HTML, converts via DomPDF (primary) or wkhtmltopdf (fallback). PDFs are stored under `wp-content/uploads/wham-reports/{year}/` with randomized filenames and served through a permission-checked download action.
 
 ### Client Dashboard
 
@@ -82,11 +82,11 @@ Three client tiers control data depth:
 | `wham_mainwp_app_password` | MainWP REST API app password |
 | `wham_client_map` | JSON mapping: monday_id -> {mainwp_site_id, gsc_property, ga4_property, tier, client_name, client_url, client_email} |
 | `wham_github_token` | GitHub PAT for private repo update checks (or use `WHAM_GITHUB_TOKEN` constant) |
-| `wham_require_review` | If enabled, reports are created as drafts requiring admin approval before publishing |
+| `wham_dashboard_page_id` | Page ID that hosts the `[wham_dashboard]` shortcode for client report links |
 
 ## Cron
 
-Monthly report generation scheduled via `wham_generate_reports` cron event (1st of month, 6:00 AM). Manual trigger available in admin.
+Monthly report generation uses a single scheduled `wham_generate_reports` event calculated from the configured day/hour. Default schedule is the 3rd of the month at 6:00 AM, and scheduled runs always generate the previous completed month. Manual trigger remains available in admin.
 
 ## Monday.com Column IDs
 

@@ -29,12 +29,15 @@ class Report_Renderer {
 			return '<div class="wham-dash-notice">Your account is not linked to a client. Please contact your account manager.</div>';
 		}
 
-		// Load CSS.
+		// Load CSS with filemtime cache busting so UI tweaks appear immediately.
+		$dashboard_css = WHAM_REPORTS_PATH . 'assets/css/dashboard.css';
+		$style_version = file_exists( $dashboard_css ) ? (string) filemtime( $dashboard_css ) : WHAM_REPORTS_VERSION;
+
 		wp_enqueue_style(
 			'wham-dashboard',
 			WHAM_REPORTS_URL . 'assets/css/dashboard.css',
 			[],
-			WHAM_REPORTS_VERSION
+			$style_version
 		);
 
 		// Check if viewing a specific report.
@@ -71,6 +74,7 @@ class Report_Renderer {
 			'posts_per_page' => 24,
 			'orderby'        => 'date',
 			'order'          => 'DESC',
+			'post_status'    => $is_admin ? [ 'publish', 'draft' ] : 'publish',
 		];
 
 		if ( $is_admin && $selected_client ) {
@@ -103,7 +107,7 @@ class Report_Renderer {
 
 		// Access check: admin or matching client.
 		$report_client_id = get_post_meta( $report_id, '_wham_client_id', true );
-		if ( ! $is_admin && $report_client_id !== $client_id ) {
+		if ( ! $is_admin && ( $report_client_id !== $client_id || 'publish' !== $report_post->post_status ) ) {
 			return '<div class="wham-dash-notice">You do not have access to this report.</div>';
 		}
 
@@ -116,7 +120,7 @@ class Report_Renderer {
 		);
 
 		$report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
-		$pdf_url     = get_post_meta( $report_id, '_wham_pdf_url', true );
+		$pdf_url     = \WHAM_Reports::get_report_download_url( $report_id );
 
 		ob_start();
 		include WHAM_REPORTS_PATH . 'templates/dashboard/report-detail.php';

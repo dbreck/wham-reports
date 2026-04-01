@@ -111,9 +111,9 @@ class MainWP_Source {
         // plugin_upgrades is keyed by slug, each value has Name, Version, new_version, etc.
         $plugins_needing_update = array_map( function( $p ) {
             return [
-                'name'        => $p['Name'] ?? $p['name'] ?? 'Unknown',
-                'current'     => $p['Version'] ?? $p['version'] ?? '',
-                'new_version' => $p['update']['new_version'] ?? $p['new_version'] ?? '',
+                'name'            => $p['Name'] ?? $p['name'] ?? 'Unknown',
+                'current_version' => $p['Version'] ?? $p['version'] ?? '',
+                'new_version'     => $p['update']['new_version'] ?? $p['new_version'] ?? '',
             ];
         }, $p_updates );
 
@@ -177,6 +177,7 @@ class MainWP_Source {
             'wp_version'          => $body['version'] ?? 'Unknown',
             'wp_update_available' => ! empty( $body['wp_upgrades'] ),
             'plugins_total'       => $body['plugins_count'] ?? 0,
+            'plugins_needing_update' => [],
             'plugins_updates_count' => $body['plugin_upgrades_count'] ?? 0,
             'theme_name'          => $body['active_theme'] ?? '',
             'theme_version'       => $body['active_theme_version'] ?? '',
@@ -230,6 +231,7 @@ class MainWP_Source {
             'wp_version'          => 'N/A',
             'wp_update_available' => false,
             'plugins_total'       => 0,
+            'plugins_needing_update' => [],
             'plugins_updates_count' => 0,
             'theme_name'          => 'N/A',
             'theme_version'       => 'N/A',

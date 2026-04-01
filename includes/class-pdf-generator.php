@@ -21,7 +21,7 @@ class PDF_Generator {
      * @param array  $report_data  The collected report data.
      * @param int    $post_id      The wham_report post ID.
      * @param string $style        Style variant: 'editorial', 'modern', 'swiss', or '' for auto.
-     * @return string|null  The PDF URL on success, null on failure.
+     * @return string|null  The PDF file path on success, null on failure.
      */
     public function generate( array $report_data, int $post_id, string $style = '' ): ?string {
         $tier = $report_data['tier'] ?? 'basic';
@@ -42,16 +42,18 @@ class PDF_Generator {
 
         // Save to uploads directory.
         $upload_dir = wp_get_upload_dir();
-        $pdf_dir    = $upload_dir['basedir'] . '/wham-reports/' . date( 'Y' );
+        $period     = $report_data['period'] ?? \WHAM_Reports::default_report_period();
+        $period_year = substr( $period, 0, 4 );
+        $pdf_dir    = $upload_dir['basedir'] . '/wham-reports/' . $period_year;
 
         if ( ! file_exists( $pdf_dir ) ) {
             wp_mkdir_p( $pdf_dir );
         }
 
         $client_slug = sanitize_title( $report_data['client']['name'] ?? 'unknown' );
-        $period      = $report_data['period'] ?? date( 'Y-m' );
         $style_suffix = $style ? "-{$style}" : '';
-        $filename    = "WHAM-Report-{$client_slug}-{$period}{$style_suffix}.pdf";
+        $random_suffix = strtolower( wp_generate_password( 10, false, false ) );
+        $filename    = "WHAM-Report-{$client_slug}-{$period}-{$random_suffix}{$style_suffix}.pdf";
         $filepath    = $pdf_dir . '/' . $filename;
 
         $written = file_put_contents( $filepath, $pdf_bytes );
@@ -59,9 +61,6 @@ class PDF_Generator {
             $this->log( "Failed to write PDF: {$filepath}" );
             return null;
         }
-
-        // Build URL.
-        $pdf_url = $upload_dir['baseurl'] . '/wham-reports/' . date( 'Y' ) . '/' . $filename;
 
         // Attach to media library.
         $attachment_id = wp_insert_attachment([
@@ -71,17 +70,17 @@ class PDF_Generator {
             'post_parent'    => $post_id,
         ], $filepath, $post_id );
 
+        update_post_meta( $post_id, '_wham_pdf_file', $filepath );
+        update_post_meta( $post_id, '_wham_pdf_filename', $filename );
+        delete_post_meta( $post_id, '_wham_pdf_url' );
+
         if ( ! is_wp_error( $attachment_id ) ) {
             require_once ABSPATH . 'wp-admin/includes/image.php';
             wp_update_attachment_metadata( $attachment_id, wp_generate_attachment_metadata( $attachment_id, $filepath ) );
-            if ( $style ) {
-                update_post_meta( $post_id, "_wham_pdf_attachment_id_{$style}", $attachment_id );
-            } else {
-                update_post_meta( $post_id, '_wham_pdf_attachment_id', $attachment_id );
-            }
+            update_post_meta( $post_id, '_wham_pdf_attachment_id', $attachment_id );
         }
 
-        return $pdf_url;
+        return $filepath;
     }
 
     /**
@@ -89,7 +88,7 @@ class PDF_Generator {
      *
      * @param array $report_data  The collected report data.
      * @param int   $post_id      The wham_report post ID.
-     * @return array  Associative array of style => URL.
+     * @return array  Associative array of style => file path.
      */
     public function generate_all_styles( array $report_data, int $post_id ): array {
         $tier = $report_data['tier'] ?? 'basic';
@@ -102,7 +101,6 @@ class PDF_Generator {
         }
 
         if ( $url ) {
-            update_post_meta( $post_id, '_wham_pdf_url', $url );
             $urls['default'] = $url;
             $this->log( "  → PDF generated: {$url}" );
         } else {
@@ -235,10 +233,6 @@ class PDF_Generator {
     }
 
     private function log( string $message ): void {
-        $log_file = ( defined( 'WHAM_REPORTS_PATH' ) ? WHAM_REPORTS_PATH : __DIR__ . '/../' ) . 'pdf-debug.log';
-        file_put_contents( $log_file, '[' . date( 'Y-m-d H:i:s' ) . '] ' . $message . "\n", FILE_APPEND );
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( '[WHAM PDF] ' . $message );
-        }
+        \WHAM_Reports::debug_log( 'PDF', $message );
     }
 }

@@ -17,10 +17,11 @@ class GA4_Source {
      * Collect GA4 analytics data for a property.
      *
      * @param string $ga4_property_id  The GA4 property ID (numeric, e.g., "123456789").
+     * @param array  $period_data      Canonical report period data from Report_Period.
      * @param string $tier             Client tier.
      * @return array  Normalized analytics data.
      */
-    public function collect( string $ga4_property_id, string $tier = 'basic' ): array {
+    public function collect( string $ga4_property_id, array $period_data, string $tier = 'basic' ): array {
         if ( empty( $ga4_property_id ) ) {
             return $this->empty_result( 'No GA4 property ID configured for this client.' );
         }
@@ -30,8 +31,8 @@ class GA4_Source {
             return $this->empty_result( 'Could not obtain Google API access token for GA4.' );
         }
 
-        $end_date   = date( 'Y-m-d', strtotime( '-1 day' ) );
-        $start_date = date( 'Y-m-d', strtotime( '-30 days' ) );
+        $start_date = $period_data['start_date'] ?? '';
+        $end_date   = $period_data['end_date'] ?? '';
 
         // 1. Core metrics.
         $core = $this->run_report( $ga4_property_id, $token, $start_date, $end_date, [], [
@@ -61,8 +62,8 @@ class GA4_Source {
         ];
 
         // Previous period for comparison.
-        $prev_end_date   = date( 'Y-m-d', strtotime( $start_date . ' -1 day' ) );
-        $prev_start_date = date( 'Y-m-d', strtotime( $prev_end_date . ' -29 days' ) );
+        $prev_start_date = $period_data['comparison_start_date'] ?? '';
+        $prev_end_date   = $period_data['comparison_end_date'] ?? '';
 
         $prev_core = $this->run_report( $ga4_property_id, $token, $prev_start_date, $prev_end_date, [], [
             'sessions', 'totalUsers', 'screenPageViews', 'bounceRate',

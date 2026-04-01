@@ -14,10 +14,7 @@ if ( $report_id ) :
 	$tier        = $report_data['tier'] ?? 'basic';
 
 	// PDF URL.
-	$pdf_url = get_post_meta( $report_id, '_wham_pdf_url', true );
-	if ( ! $pdf_url ) {
-		$pdf_url = get_post_meta( $report_id, '_wham_pdf_url_swiss', true );
-	}
+	$pdf_url = \WHAM_Reports::get_report_download_url( $report_id );
 ?>
 
 <div class="wrap wham-admin">

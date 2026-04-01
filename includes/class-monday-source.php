@@ -184,11 +184,47 @@ class Monday_Source {
 
         $items = $data['data']['boards'][0]['items_page']['items'] ?? [];
 
-        // Filter to "Active Clients" group only.
-        return array_filter( $items, function( $item ) {
+        $active_items = array_filter( $items, function( $item ) {
             $group = $item['group']['title'] ?? '';
             return stripos( $group, 'Active' ) !== false;
         });
+
+        return array_values( array_map( function( $item ) {
+            $columns   = $this->index_columns( $item['column_values'] ?? [] );
+            $plan_text = strtolower( trim( (string) ( $columns[ self::COL_PLAN_TYPE ]['text'] ?? '' ) ) );
+            $website   = $columns[ self::COL_WEBSITE ]['text'] ?? '';
+
+            if ( ! empty( $columns[ self::COL_WEBSITE ]['value'] ) ) {
+                $link_value = json_decode( $columns[ self::COL_WEBSITE ]['value'], true );
+                if ( ! empty( $link_value['url'] ) ) {
+                    $website = $link_value['url'];
+                }
+            }
+
+            if ( $website && strpos( $website, 'http' ) !== 0 ) {
+                $website = 'https://' . ltrim( $website, '/' );
+            }
+
+            $domain = strtolower( parse_url( $website, PHP_URL_HOST ) ?: '' );
+            $domain = preg_replace( '/^www\./', '', $domain );
+
+            if ( strpos( $plan_text, 'premium' ) !== false ) {
+                $tier = 'premium';
+            } elseif ( strpos( $plan_text, 'pro' ) !== false ) {
+                $tier = 'professional';
+            } else {
+                $tier = 'basic';
+            }
+
+            return [
+                'id'         => (string) ( $item['id'] ?? '' ),
+                'name'       => (string) ( $item['name'] ?? '' ),
+                'tier'       => $tier,
+                'tier_label' => ucfirst( $tier ),
+                'url'        => $website,
+                'domain'     => $domain,
+            ];
+        }, $active_items ) );
     }
 
     /**

@@ -75,3 +75,65 @@ if ( ! function_exists( 'wham_chart_img' ) ) {
 		return '<div class="chart-wrap"><img src="data:image/png;base64,' . $data . '" style="width:100%;max-width:' . $max_width . ';"></div>';
 	}
 }
+
+/**
+ * Encode a local asset as a data URI for reliable PDF rendering.
+ *
+ * @param string $path Absolute filesystem path.
+ * @return string Data URI or empty string if missing/unsupported.
+ */
+if ( ! function_exists( 'wham_pdf_asset_data_uri' ) ) {
+	function wham_pdf_asset_data_uri( $path ) {
+		if ( empty( $path ) || ! file_exists( $path ) ) {
+			return '';
+		}
+
+		$ext = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+		$map = [
+			'png'  => 'image/png',
+			'jpg'  => 'image/jpeg',
+			'jpeg' => 'image/jpeg',
+			'gif'  => 'image/gif',
+			'svg'  => 'image/svg+xml',
+			'webp' => 'image/webp',
+		];
+
+		if ( empty( $map[ $ext ] ) ) {
+			return '';
+		}
+
+		$data = file_get_contents( $path );
+		if ( false === $data ) {
+			return '';
+		}
+
+		return 'data:' . $map[ $ext ] . ';base64,' . base64_encode( $data );
+	}
+}
+
+/**
+ * Render the WHAM logo from uploads as an embedded image for PDFs.
+ *
+ * @param string $style Inline CSS for the img tag.
+ * @param string $class CSS class for the img tag.
+ * @return string HTML img tag or empty string if the logo is unavailable.
+ */
+if ( ! function_exists( 'wham_pdf_logo_img' ) ) {
+	function wham_pdf_logo_img( $style = '', $class = '' ) {
+		$upload_dir = wp_get_upload_dir();
+		$candidates = [
+			trailingslashit( $upload_dir['basedir'] ) . '2025/07/wham-logo-dark.svg',
+		];
+
+		foreach ( $candidates as $path ) {
+			$data_uri = wham_pdf_asset_data_uri( $path );
+			if ( $data_uri ) {
+				$class_attr = $class ? ' class="' . esc_attr( $class ) . '"' : '';
+				$style_attr = $style ? ' style="' . esc_attr( $style ) . '"' : '';
+				return '<img src="' . $data_uri . '" alt="WHAM"' . $class_attr . $style_attr . '>';
+			}
+		}
+
+		return '';
+	}
+}

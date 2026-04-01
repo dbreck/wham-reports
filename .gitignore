@@ -1,2 +1,5 @@
 vendor/
 .DS_Store
+error.log
+pdf-debug.log
+wham-reports.zip

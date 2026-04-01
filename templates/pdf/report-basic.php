@@ -14,6 +14,7 @@ $client       = $report['client'] ?? [];
 $maintenance  = $report['maintenance'] ?? [];
 $search       = $report['search'] ?? [];
 $period_label = $report['period_label'] ?? date( 'F Y' );
+$logo_img     = wham_pdf_logo_img( 'display:block;width:162px;height:auto;', 'brand-logo-img' );
 
 // Maintenance data.
 $wp_version      = $maintenance['wp_version'] ?? 'N/A';
@@ -50,6 +51,8 @@ $clicks_change = $search['comparison']['clicks_change'] ?? null;
 	}
 	.header-table { width: 100%; border-collapse: collapse; }
 	.header-table td { vertical-align: bottom; padding: 0; }
+	.brand-lockup { display: inline-block; background-color: #ffffff; padding: 10px 12px; border-radius: 8px; }
+	.brand-lockup img { display: block; width: 162px; height: auto; }
 	.brand-name { font-size: 30pt; font-weight: bold; letter-spacing: 2px; color: #ffffff; line-height: 1; }
 	.brand-tagline { font-size: 7pt; color: #8899aa; letter-spacing: 1px; text-transform: uppercase; padding-top: 3px; }
 	.header-right { text-align: right; }
@@ -89,8 +92,12 @@ $clicks_change = $search['comparison']['clicks_change'] ?? null;
 	<table class="header-table">
 		<tr>
 			<td style="width: 50%;">
-				<div class="brand-name">WHAM</div>
-				<div class="brand-tagline">Web Hosting &amp; Maintenance</div>
+				<?php if ( $logo_img ) : ?>
+					<div class="brand-lockup"><?php echo $logo_img; ?></div>
+				<?php else : ?>
+					<div class="brand-name">WHAM</div>
+					<div class="brand-tagline">Web Hosting &amp; Maintenance</div>
+				<?php endif; ?>
 			</td>
 			<td class="header-right">
 				<div class="client-name"><?php echo esc_html( $client['name'] ?? 'Client' ); ?></div>

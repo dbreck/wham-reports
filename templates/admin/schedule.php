@@ -9,7 +9,7 @@
 
         <?php
         $autosend_enabled  = get_option( 'wham_autosend_enabled', '0' );
-        $autosend_day      = (int) get_option( 'wham_autosend_day', 1 );
+        $autosend_day      = (int) get_option( 'wham_autosend_day', 3 );
         $autosend_hour     = (int) get_option( 'wham_autosend_hour', 6 );
         $autosend_email    = get_option( 'wham_autosend_email', '1' );
         $autosend_excludes = json_decode( get_option( 'wham_autosend_excludes', '[]' ), true ) ?: [];
@@ -40,7 +40,7 @@
                             <option value="<?php echo esc_attr( $d ); ?>" <?php selected( $autosend_day, $d ); ?>><?php echo esc_html( $d ); ?></option>
                         <?php endfor; ?>
                     </select>
-                    <p class="description">Reports will generate on this day each month. Limited to 1-28 to avoid month-length issues.</p>
+                    <p class="description">Reports will generate on this day each month. The scheduled run always generates the previous completed month. Limited to 1-28 to avoid month-length issues.</p>
                 </td>
             </tr>
             <tr>

@@ -39,7 +39,9 @@ class Data_Collector {
         $results    = [];
 
         if ( empty( $period ) ) {
-            $period = date( 'Y-m' );
+            $period = \WHAM_Reports::default_report_period();
+        } else {
+            $period = Report_Period::sanitize( $period );
         }
 
         foreach ( $client_map as $monday_id => $config ) {
@@ -64,14 +66,20 @@ class Data_Collector {
      */
     public function generate_single_report( string $monday_id, string $period = '' ): array {
         if ( empty( $period ) ) {
-            $period = date( 'Y-m' );
+            $period = \WHAM_Reports::default_report_period();
+        } else {
+            $period = Report_Period::sanitize( $period );
         }
+
+        $report_period = Report_Period::from_string( $period );
+        $period_data   = $report_period->to_array();
+        $period        = $report_period->period();
 
         $client_map = \WHAM_Reports::get_client_map();
         $config     = $client_map[ $monday_id ] ?? null;
 
         if ( ! $config ) {
-            return [ 'status' => 'error', 'message' => 'Client not found in mapping: ' . $monday_id ];
+            return [ 'status' => 'error', 'client_name' => $monday_id, 'message' => 'Client not found in mapping: ' . $monday_id ];
         }
 
         $tier        = $config['tier'] ?? 'basic';
@@ -93,7 +101,7 @@ class Data_Collector {
 
         if ( ! empty( $existing ) ) {
             $this->log( "  → Report already exists (ID: {$existing[0]->ID}). Skipping." );
-            return [ 'status' => 'skipped', 'report_id' => $existing[0]->ID, 'message' => 'Report already exists.' ];
+            return [ 'status' => 'skipped', 'report_id' => $existing[0]->ID, 'client_name' => $client_name, 'message' => 'Report already exists.' ];
         }
 
         // ── Collect Data ──────────────────────────────────────────────
@@ -101,7 +109,13 @@ class Data_Collector {
         $report_data = [
             'generated_at' => date( 'c' ),
             'period'       => $period,
-            'period_label' => date( 'F Y', strtotime( $period . '-01' ) ),
+            'period_label' => $period_data['period_label'],
+            'period_start' => $period_data['start_date'],
+            'period_end'   => $period_data['end_date'],
+            'comparison'   => [
+                'start_date' => $period_data['comparison_start_date'],
+                'end_date'   => $period_data['comparison_end_date'],
+            ],
             'tier'         => $tier,
             'client'       => [
                 'name'      => $client_name,
@@ -123,7 +137,7 @@ class Data_Collector {
         // Category F: SEO & Traffic — GSC (Professional+ or all if we have data).
         $gsc_property = $config['gsc_property'] ?? '';
         if ( $gsc_property ) {
-            $report_data['search'] = $this->gsc->collect( $gsc_property, $tier );
+            $report_data['search'] = $this->gsc->collect( $gsc_property, $period_data, $tier );
             $this->log( '  → GSC data collected.' );
         } else {
             $report_data['search'] = [ 'source' => 'not_configured', 'error' => 'GSC property not mapped.' ];
@@ -133,7 +147,7 @@ class Data_Collector {
         // Category F: SEO & Traffic — GA4 (always collected; visibility controlled at render).
         $ga4_property = $config['ga4_property'] ?? '';
         if ( $ga4_property ) {
-            $report_data['analytics'] = $this->ga4->collect( $ga4_property, $tier );
+            $report_data['analytics'] = $this->ga4->collect( $ga4_property, $period_data, $tier );
             $this->log( '  → GA4 data collected.' );
         } else {
             $report_data['analytics'] = [ 'source' => 'not_configured', 'error' => 'GA4 property not mapped.' ];
@@ -186,21 +200,20 @@ class Data_Collector {
 
         // Dev hours chart removed in v3.0 — dev hours no longer shown in reports.
 
+        $issues = $this->collect_issues( $report_data );
+
         // ── Create Report Post ────────────────────────────────────────
 
-        $title = sprintf( '%s — %s', $client_name, date( 'F Y', strtotime( $period . '-01' ) ) );
-
-        $require_review = get_option( 'wham_require_review', '0' );
-        $post_status = $require_review ? 'draft' : 'publish';
+        $title = sprintf( '%s — %s', $client_name, $period_data['period_label'] );
 
         $post_id = wp_insert_post([
             'post_type'   => 'wham_report',
             'post_title'  => $title,
-            'post_status' => $post_status,
+            'post_status' => 'publish',
         ]);
 
         if ( is_wp_error( $post_id ) ) {
-            return [ 'status' => 'error', 'message' => 'Failed to create report post: ' . $post_id->get_error_message() ];
+            return [ 'status' => 'error', 'client_name' => $client_name, 'message' => 'Failed to create report post: ' . $post_id->get_error_message() ];
         }
 
         // Save meta.
@@ -210,31 +223,36 @@ class Data_Collector {
         update_post_meta( $post_id, '_wham_tier', $tier );
         update_post_meta( $post_id, '_wham_period', $period );
         update_post_meta( $post_id, '_wham_report_data', wp_json_encode( $report_data ) );
+        update_post_meta( $post_id, '_wham_generation_issues', wp_json_encode( $issues ) );
 
         $this->log( "  → Report post created (ID: {$post_id})." );
 
         // ── Generate PDFs (all style variants) ───────────────────────
 
-        $pdf_urls = $this->pdf->generate_all_styles( $report_data, $post_id );
-        if ( ! empty( $pdf_urls ) ) {
-            $this->log( '  → PDFs generated: ' . implode( ', ', array_keys( $pdf_urls ) ) );
+        $pdf_files = $this->pdf->generate_all_styles( $report_data, $post_id );
+        if ( ! empty( $pdf_files ) ) {
+            $this->log( '  → PDFs generated: ' . implode( ', ', array_keys( $pdf_files ) ) );
         } else {
             $this->log( '  → PDF generation failed.' );
+            $issues[] = 'PDF generation failed.';
+            update_post_meta( $post_id, '_wham_generation_issues', wp_json_encode( $issues ) );
         }
-        $pdf_url = $pdf_urls['editorial'] ?? $pdf_urls['default'] ?? reset( $pdf_urls ) ?: null;
+        $has_pdf = ! empty( $pdf_files['default'] );
 
         // ── Update Monday.com Status ──────────────────────────────────
 
         $subitem_id = $report_data['dev_hours']['subitem_id'] ?? '';
-        if ( $subitem_id ) {
+        if ( $subitem_id && $has_pdf ) {
             $this->monday->update_report_status( $subitem_id, 'Working on it' );
             $this->log( '  → Monday.com status updated to "Working on it".' );
         }
 
         return [
-            'status'    => 'success',
-            'report_id' => $post_id,
-            'pdf_url'   => $pdf_url ?? null,
+            'status'      => 'success',
+            'report_id'   => $post_id,
+            'client_name' => $client_name,
+            'has_pdf'     => $has_pdf,
+            'issues'      => $issues,
         ];
     }
 
@@ -251,7 +269,7 @@ class Data_Collector {
         $results    = [];
 
         if ( empty( $period ) ) {
-            $period = date( 'Y-m' );
+            $period = \WHAM_Reports::default_report_period();
         }
 
         foreach ( $client_map as $monday_id => $config ) {
@@ -265,7 +283,7 @@ class Data_Collector {
             $results[ $monday_id ] = $result;
 
             if ( $send_email && 'success' === ( $result['status'] ?? '' ) && ! empty( $result['report_id'] ) ) {
-                $this->send_report_email( (int) $result['report_id'] );
+                $results[ $monday_id ]['email_sent'] = $this->send_report_email( (int) $result['report_id'] );
             }
 
             usleep( 500000 ); // 0.5s pause for rate limits.
@@ -294,49 +312,33 @@ class Data_Collector {
         }
 
         $client_name = get_post_meta( $report_id, '_wham_client_name', true );
-        $period      = get_post_meta( $report_id, '_wham_period', true );
-        $period_label = date( 'F Y', strtotime( $period . '-01' ) );
-        $pdf_url     = get_post_meta( $report_id, '_wham_pdf_url', true );
+        $period      = Report_Period::sanitize( (string) get_post_meta( $report_id, '_wham_period', true ) );
+        $period_label = Report_Period::from_string( $period )->label();
+        $pdf_url      = '';
         $tier        = get_post_meta( $report_id, '_wham_tier', true );
-
-        $sender_name  = get_option( 'wham_sender_name', 'WHAM Reports' );
-        $sender_email = get_option( 'wham_sender_email', get_option( 'admin_email' ) );
+        $dashboard_url = \WHAM_Reports::get_report_dashboard_url( $report_id );
 
         $subject = "WHAM Report — {$period_label}";
 
         // Load report data for inline email content.
         $report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
 
-        // Convert chart file paths to public URLs for email img tags.
         $chart_urls = [];
-        if ( ! empty( $report_data['charts'] ) ) {
-            foreach ( $report_data['charts'] as $key => $path ) {
-                if ( ! empty( $path ) && file_exists( $path ) ) {
-                    $chart_urls[ $key ] = Chart_Generator::get_chart_url( $path );
-                }
-            }
-        }
 
         // Load email template.
         ob_start();
         include WHAM_REPORTS_PATH . 'templates/email/report-email.php';
         $body = ob_get_clean();
 
-        $headers = [
-            'Content-Type: text/html; charset=UTF-8',
-            "From: {$sender_name} <{$sender_email}>",
-        ];
-
         // Attach PDF if available.
         $attachments = [];
-        if ( $pdf_url ) {
-            $pdf_path = $this->url_to_path( $pdf_url );
-            if ( $pdf_path && file_exists( $pdf_path ) ) {
-                $attachments[] = $pdf_path;
-            }
+        $pdf_path = \WHAM_Reports::get_report_pdf_path( $report_id );
+        if ( $pdf_path && file_exists( $pdf_path ) ) {
+            $attachments[] = $pdf_path;
         }
 
-        $sent = wp_mail( $email, $subject, $body, $headers, $attachments );
+        $mail_result = \WHAM_Reports::send_html_mail( $email, $subject, $body, $attachments );
+        $sent        = ! empty( $mail_result['sent'] );
 
         if ( $sent ) {
             // Update Monday.com status if subitem exists.
@@ -345,27 +347,16 @@ class Data_Collector {
             } elseif ( ! empty( $report_data['dev_hours']['subitem_id'] ) ) {
                 $this->monday->update_report_status( $report_data['dev_hours']['subitem_id'], 'Sent', date( 'Y-m-d' ) );
             }
-            $this->log( "Email sent to {$email} for report {$report_id}." );
+            if ( ! empty( $mail_result['used_sender_fallback'] ) ) {
+                $this->log( "Email sent to {$email} for report {$report_id} using the site default sender." );
+            } else {
+                $this->log( "Email sent to {$email} for report {$report_id}." );
+            }
         } else {
-            $this->log( "Failed to send email to {$email} for report {$report_id}." );
+            $this->log( 'Failed to send email to ' . $email . ' for report ' . $report_id . ': ' . ( $mail_result['error'] ?? 'wp_mail() failed.' ) );
         }
 
         return $sent;
-    }
-
-    /**
-     * Convert a WordPress URL to a file path.
-     */
-    private function url_to_path( string $url ): ?string {
-        $upload_dir = wp_get_upload_dir();
-        $base_url   = $upload_dir['baseurl'];
-        $base_dir   = $upload_dir['basedir'];
-
-        if ( strpos( $url, $base_url ) === 0 ) {
-            return str_replace( $base_url, $base_dir, $url );
-        }
-
-        return null;
     }
 
     /**
@@ -422,8 +413,19 @@ class Data_Collector {
      * Simple logging to error log.
      */
     private function log( string $message ): void {
-        if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-            error_log( '[WHAM Reports] ' . $message );
+        \WHAM_Reports::debug_log( 'DATA', $message );
+    }
+
+    private function collect_issues( array $report_data ): array {
+        $issues = [];
+
+        foreach ( [ 'maintenance', 'search', 'analytics', 'dev_hours' ] as $section ) {
+            $error = $report_data[ $section ]['error'] ?? '';
+            if ( is_string( $error ) && $error !== '' ) {
+                $issues[] = ucfirst( str_replace( '_', ' ', $section ) ) . ': ' . $error;
+            }
         }
+
+        return $issues;
     }
 }

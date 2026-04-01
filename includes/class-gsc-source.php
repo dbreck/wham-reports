@@ -17,10 +17,11 @@ class GSC_Source {
      * Collect GSC data for a property.
      *
      * @param string $gsc_property  The GSC property (e.g., "sc-domain:example.com").
+     * @param array  $period_data   Canonical report period data from Report_Period.
      * @param string $tier          Client tier.
      * @return array  Normalized SEO search data.
      */
-    public function collect( string $gsc_property, string $tier = 'basic' ): array {
+    public function collect( string $gsc_property, array $period_data, string $tier = 'basic' ): array {
         if ( empty( $gsc_property ) ) {
             return $this->empty_result( 'No GSC property configured for this client.' );
         }
@@ -30,13 +31,10 @@ class GSC_Source {
             return $this->empty_result( 'Could not obtain Google API access token.' );
         }
 
-        // Date ranges.
-        $end_date   = date( 'Y-m-d', strtotime( '-2 days' ) ); // GSC data has ~2-day delay.
-        $start_date = date( 'Y-m-d', strtotime( '-30 days' ) );
-
-        // Previous period for comparison.
-        $prev_end   = date( 'Y-m-d', strtotime( '-32 days' ) );
-        $prev_start = date( 'Y-m-d', strtotime( '-60 days' ) );
+        $start_date = $period_data['start_date'] ?? '';
+        $end_date   = $period_data['end_date'] ?? '';
+        $prev_start = $period_data['comparison_start_date'] ?? '';
+        $prev_end   = $period_data['comparison_end_date'] ?? '';
 
         // 1. Aggregate performance (all tiers).
         $aggregate = $this->query_search_analytics( $gsc_property, $token, $start_date, $end_date );

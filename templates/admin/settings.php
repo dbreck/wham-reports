@@ -2,6 +2,12 @@
 <div class="wrap wham-admin">
     <h1>WHAM Reports — Settings</h1>
 
+    <?php if ( ! \WHAM_Reports::get_dashboard_page_id() ) : ?>
+        <div class="notice notice-warning">
+            <p>Set a dashboard page below before sending report links to clients. Dashboard and email CTAs are suppressed until this is configured.</p>
+        </div>
+    <?php endif; ?>
+
     <div class="notice notice-info" style="padding: 12px 16px;">
         <strong>Client Dashboard Shortcode:</strong>
         <code style="font-size: 14px; padding: 2px 8px; background: #f0f0f1; border-radius: 3px;">[wham_dashboard]</code>
@@ -13,6 +19,21 @@
 
         <h2>API Credentials</h2>
         <table class="form-table">
+            <tr>
+                <th scope="row"><label for="wham_dashboard_page_id">Dashboard Page</label></th>
+                <td>
+                    <?php
+                    wp_dropdown_pages( [
+                        'name'              => 'wham_dashboard_page_id',
+                        'id'                => 'wham_dashboard_page_id',
+                        'show_option_none'  => '— Select a page —',
+                        'option_none_value' => '0',
+                        'selected'          => \WHAM_Reports::get_dashboard_page_id(),
+                    ] );
+                    ?>
+                    <p class="description">This page should contain the <code>[wham_dashboard]</code> shortcode. The plugin uses this page for report links in the admin and email templates.</p>
+                </td>
+            </tr>
             <tr>
                 <th scope="row"><label for="wham_monday_api_token">Monday.com API Token</label></th>
                 <td>
@@ -144,31 +165,6 @@
                     <?php endforeach; ?>
                 <?php endforeach; ?>
             </tbody>
-        </table>
-
-        <h2>PDF Settings</h2>
-        <table class="form-table">
-            <tr>
-                <th scope="row"><label for="wham_pdf_template">PDF Template</label></th>
-                <td>
-                    <?php $pdf_template = get_option( 'wham_pdf_template', 'auto' ); ?>
-                    <select id="wham_pdf_template" name="wham_pdf_template">
-                        <option value="auto" <?php selected( $pdf_template, 'auto' ); ?>>Auto (Basic template for Basic tier, Professional for others)</option>
-                        <option value="basic" <?php selected( $pdf_template, 'basic' ); ?>>Always use Basic template</option>
-                        <option value="professional" <?php selected( $pdf_template, 'professional' ); ?>>Always use Professional template</option>
-                    </select>
-                    <p class="description">Choose which PDF template to use for generated reports.</p>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row"><label for="wham_company_name">Company Name (in reports)</label></th>
-                <td>
-                    <input type="text" id="wham_company_name" name="wham_company_name"
-                           value="<?php echo esc_attr( get_option( 'wham_company_name', 'WHAM' ) ); ?>"
-                           class="regular-text" />
-                    <p class="description">Displayed in the report header and footer.</p>
-                </td>
-            </tr>
         </table>
 
         <?php submit_button( 'Save Settings' ); ?>

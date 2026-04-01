@@ -27,6 +27,7 @@ rsync -a \
   --exclude='.git' \
   --exclude='.gitignore' \
   --exclude='build-release.sh' \
+  --exclude='error.log' \
   --exclude='pdf-debug.log' \
   --exclude='*.jsonl' \
   --exclude='.claude' \
@@ -42,6 +43,8 @@ mkdir -p "$BUILD_DIR/wham-reports/vendor"
 cp vendor/autoload.php "$BUILD_DIR/wham-reports/vendor/"
 rsync -a vendor/composer/ "$BUILD_DIR/wham-reports/vendor/composer/"
 rsync -a vendor/dompdf/ "$BUILD_DIR/wham-reports/vendor/dompdf/"
+rsync -a vendor/dompdf/php-font-lib/ "$BUILD_DIR/wham-reports/vendor/dompdf/php-font-lib/"
+rsync -a vendor/dompdf/php-svg-lib/ "$BUILD_DIR/wham-reports/vendor/dompdf/php-svg-lib/"
 rsync -a vendor/masterminds/ "$BUILD_DIR/wham-reports/vendor/masterminds/"
 rsync -a vendor/sabberworm/ "$BUILD_DIR/wham-reports/vendor/sabberworm/"
 

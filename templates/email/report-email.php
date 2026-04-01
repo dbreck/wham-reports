@@ -5,15 +5,14 @@
  * Variables available:
  *   $client_name  (string) — Client display name
  *   $period_label (string) — e.g. "March 2026"
- *   $pdf_url      (string) — URL to the PDF file
  *   $tier         (string) — basic / professional / premium
  *   $report_id    (int)    — wham_report post ID
  *   $report_data  (array)  — Full report data (maintenance, search, analytics, charts)
- *   $chart_urls   (array)  — Chart image public URLs keyed by chart type
  */
 defined( 'ABSPATH' ) || exit;
 
-$dashboard_url = home_url( '/client-dashboard/?report=' . intval( $report_id ) );
+$dashboard_url       = $dashboard_url ?? \WHAM_Reports::get_report_dashboard_url( intval( $report_id ) );
+$has_pdf_attachment  = null !== \WHAM_Reports::get_report_pdf_path( intval( $report_id ) );
 $first_name    = explode( ' ', $client_name )[0] ?? $client_name;
 
 // Extract report sections.
@@ -451,20 +450,24 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<!-- ============================================================ -->
 	<!-- CTA: VIEW REPORT ONLINE                                       -->
 	<!-- ============================================================ -->
+	<?php if ( $dashboard_url || $has_pdf_attachment ) : ?>
 	<tr>
 		<td style="padding:16px 32px;">
 			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;padding:0;">
 				<tr>
 					<td align="center" style="padding:24px 20px;">
-						<a href="<?php echo esc_url( $dashboard_url ); ?>" style="display:inline-block;padding:12px 32px;background-color:#0f172a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.5px;">View Full Report Online</a>
-						<?php if ( $pdf_url ) : ?>
-						<p style="font-size:12px;color:#94a3b8;margin:12px 0 0 0;">PDF report is also attached to this email.</p>
+						<?php if ( $dashboard_url ) : ?>
+							<a href="<?php echo esc_url( $dashboard_url ); ?>" style="display:inline-block;padding:12px 32px;background-color:#0f172a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.5px;">View Full Report Online</a>
+						<?php endif; ?>
+						<?php if ( $has_pdf_attachment ) : ?>
+						<p style="font-size:12px;color:#94a3b8;margin:12px 0 0 0;">PDF report is attached to this email.</p>
 						<?php endif; ?>
 					</td>
 				</tr>
 			</table>
 		</td>
 	</tr>
+	<?php endif; ?>
 
 	<!-- ============================================================ -->
 	<!-- FOOTER                                                        -->

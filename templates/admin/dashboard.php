@@ -1,20 +1,98 @@
 <?php defined( 'ABSPATH' ) || exit; ?>
 <div class="wrap wham-admin wham-dashboard">
 
-    <?php if ( isset( $_GET['generated'] ) ) : ?>
-        <?php $gen = (int) $_GET['generated']; ?>
-        <div class="notice notice-success is-dismissible">
-            <p>
-                <?php
-                if ( $gen === 1 ) {
-                    echo '1 report generated successfully.';
-                } elseif ( $gen > 1 ) {
-                    echo esc_html( $gen ) . ' reports generated successfully.';
-                } else {
-                    echo 'Report generation complete. Reports may have been skipped if they already exist for this period.';
-                }
-                ?>
-            </p>
+    <?php
+    $dashboard_settings_url = admin_url( 'admin.php?page=wham-reports-settings' );
+    $last_run_summary = \WHAM_Reports::get_last_run_summary();
+    $summary_period    = $last_run_summary['period'] ?? '';
+    $summary_label     = $summary_period ? \WHAM_Reports\Report_Period::from_string( \WHAM_Reports\Report_Period::sanitize( $summary_period ) )->label() : '';
+    $summary_context   = ucfirst( $last_run_summary['context'] ?? 'run' );
+    $summary_timestamp = ! empty( $last_run_summary['timestamp'] ) ? strtotime( $last_run_summary['timestamp'] ) : false;
+    ?>
+
+    <?php if ( isset( $_GET['generated'] ) || ! \WHAM_Reports::get_dashboard_page_id() || ! empty( $last_run_summary ) ) : ?>
+        <div class="wham-dash-notices">
+            <?php if ( isset( $_GET['generated'] ) ) : ?>
+                <?php $gen = (int) $_GET['generated']; ?>
+                <section class="wham-dash-alert wham-dash-alert-success" aria-label="Generation status">
+                    <div class="wham-dash-alert-icon" aria-hidden="true">✓</div>
+                    <div class="wham-dash-alert-body">
+                        <h2 class="wham-dash-alert-title">Report generation complete</h2>
+                        <p class="wham-dash-alert-text">
+                            <?php
+                            if ( $gen === 1 ) {
+                                echo '1 report was generated successfully.';
+                            } elseif ( $gen > 1 ) {
+                                echo esc_html( $gen ) . ' reports were generated successfully.';
+                            } else {
+                                echo 'The run finished. Some clients may have been skipped because a report already existed for that month.';
+                            }
+                            ?>
+                        </p>
+                    </div>
+                </section>
+            <?php endif; ?>
+
+            <?php if ( ! \WHAM_Reports::get_dashboard_page_id() ) : ?>
+                <section class="wham-dash-alert wham-dash-alert-warning" aria-label="Dashboard setup warning">
+                    <div class="wham-dash-alert-icon" aria-hidden="true">!</div>
+                    <div class="wham-dash-alert-body">
+                        <h2 class="wham-dash-alert-title">Dashboard page not configured</h2>
+                        <p class="wham-dash-alert-text">
+                            Client-facing report links are currently suppressed. Set the dashboard page in
+                            <a href="<?php echo esc_url( $dashboard_settings_url ); ?>">Settings</a>
+                            before sending reports to clients.
+                        </p>
+                    </div>
+                </section>
+            <?php endif; ?>
+
+            <?php if ( ! empty( $last_run_summary ) ) : ?>
+                <section class="wham-dash-alert wham-dash-alert-info" aria-label="Last run summary">
+                    <div class="wham-dash-alert-icon" aria-hidden="true">i</div>
+                    <div class="wham-dash-alert-body">
+                        <div class="wham-dash-alert-head">
+                            <div>
+                                <h2 class="wham-dash-alert-title">Last run summary</h2>
+                                <p class="wham-dash-alert-text">
+                                    <?php echo esc_html( $summary_context ); ?>
+                                    <?php if ( $summary_label ) : ?>
+                                        for <strong><?php echo esc_html( $summary_label ); ?></strong>
+                                    <?php endif; ?>
+                                    <?php if ( $summary_timestamp ) : ?>
+                                        on <strong><?php echo esc_html( date_i18n( 'M j, Y g:i A', $summary_timestamp ) ); ?></strong>
+                                    <?php endif; ?>.
+                                </p>
+                            </div>
+                            <div class="wham-dash-alert-metrics" aria-label="Run counts">
+                                <span class="wham-dash-alert-metric">
+                                    <strong><?php echo esc_html( (string) ( $last_run_summary['success'] ?? 0 ) ); ?></strong>
+                                    Generated
+                                </span>
+                                <span class="wham-dash-alert-metric">
+                                    <strong><?php echo esc_html( (string) ( $last_run_summary['skipped'] ?? 0 ) ); ?></strong>
+                                    Skipped
+                                </span>
+                                <span class="wham-dash-alert-metric">
+                                    <strong><?php echo esc_html( (string) ( $last_run_summary['error'] ?? 0 ) ); ?></strong>
+                                    Errors
+                                </span>
+                            </div>
+                        </div>
+
+                        <?php if ( ! empty( $last_run_summary['errors'] ) ) : ?>
+                            <div class="wham-dash-alert-errors">
+                                <span class="wham-dash-alert-errors-label">Recent issues</span>
+                                <ul class="wham-dash-alert-list">
+                                    <?php foreach ( array_slice( (array) $last_run_summary['errors'], 0, 4 ) as $issue ) : ?>
+                                        <li><?php echo esc_html( $issue ); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </section>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 
@@ -75,7 +153,7 @@
                     <label for="wham_report_period" class="wham-dash-label">Report Period</label>
                     <select name="wham_report_period" id="wham_report_period" class="wham-dash-select">
                         <?php
-                        $now = new \DateTime( 'first day of this month' );
+                        $now = new \DateTime( 'first day of previous month' );
                         for ( $i = 0; $i < 12; $i++ ) {
                             $value = $now->format( 'Y-m' );
                             $label = $now->format( 'F Y' );
@@ -202,9 +280,9 @@
                         <td><?php echo esc_html( get_post_meta( get_the_ID(), '_wham_period', true ) ); ?></td>
                         <td><span class="wham-dash-tier-badge" style="background:<?php echo esc_attr( $r_color ); ?>;"><?php echo esc_html( ucfirst( $r_tier ?: 'basic' ) ); ?></span></td>
                         <td>
-                            <?php $pdf = get_post_meta( get_the_ID(), '_wham_pdf_url', true ); ?>
-                            <?php if ( $pdf ) : ?>
-                                <a href="<?php echo esc_url( $pdf ); ?>" target="_blank" class="wham-dash-pdf-link">Download</a>
+                            <?php $download_url = \WHAM_Reports::get_report_download_url( get_the_ID() ); ?>
+                            <?php if ( $download_url ) : ?>
+                                <a href="<?php echo esc_url( $download_url ); ?>" class="wham-dash-pdf-link">Download</a>
                             <?php else : ?>
                                 <span class="wham-dash-muted">--</span>
                             <?php endif; ?>

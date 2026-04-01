@@ -208,19 +208,19 @@ class Chart_Generator {
 		] );
 
 		if ( is_wp_error( $response ) ) {
-			error_log( '[WHAM Charts] Download failed: ' . $response->get_error_message() );
+			\WHAM_Reports::debug_log( 'CHARTS', 'Download failed: ' . $response->get_error_message() );
 			return '';
 		}
 
 		$code = wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $code ) {
-			error_log( '[WHAM Charts] QuickChart returned HTTP ' . $code );
+			\WHAM_Reports::debug_log( 'CHARTS', 'QuickChart returned HTTP ' . $code );
 			return '';
 		}
 
 		$body = wp_remote_retrieve_body( $response );
 		if ( empty( $body ) ) {
-			error_log( '[WHAM Charts] Empty response body from QuickChart' );
+			\WHAM_Reports::debug_log( 'CHARTS', 'Empty response body from QuickChart' );
 			return '';
 		}
 

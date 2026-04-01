@@ -1,49 +1,5 @@
 <?php defined( 'ABSPATH' ) || exit;
 
-// ── Handle form submission ───────────────────────────────────────────────────
-if ( isset( $_POST['wham_client_map_save'] ) && check_admin_referer( 'wham_save_mapping' ) ) {
-    $map = [];
-    $ids = $_POST['monday_id'] ?? [];
-    foreach ( $ids as $i => $monday_id ) {
-        $monday_id = sanitize_text_field( $monday_id );
-        if ( empty( $monday_id ) ) continue;
-        $map[ $monday_id ] = [
-            'client_name'    => sanitize_text_field( $_POST['client_name'][ $i ] ?? '' ),
-            'client_url'     => esc_url_raw( $_POST['client_url'][ $i ] ?? '' ),
-            'tier'           => sanitize_text_field( $_POST['tier'][ $i ] ?? 'basic' ),
-            'mainwp_site_id' => sanitize_text_field( $_POST['mainwp_site_id'][ $i ] ?? '' ),
-            'gsc_property'   => sanitize_text_field( $_POST['gsc_property'][ $i ] ?? '' ),
-            'ga4_property'   => sanitize_text_field( $_POST['ga4_property'][ $i ] ?? '' ),
-            'client_email'   => sanitize_email( $_POST['client_email'][ $i ] ?? '' ),
-        ];
-    }
-    update_option( 'wham_client_map', wp_json_encode( $map ) );
-
-    // ── Sync user ↔ client access via user meta ──────────────────────────
-    $prev_assigned = get_users([
-        'meta_key'   => '_wham_monday_client_id',
-        'meta_compare' => 'EXISTS',
-        'fields'     => 'ID',
-    ]);
-    foreach ( $prev_assigned as $uid ) {
-        delete_user_meta( (int) $uid, '_wham_monday_client_id' );
-    }
-
-    $user_assignments = $_POST['wham_users'] ?? [];
-    foreach ( $user_assignments as $monday_id => $user_ids ) {
-        $monday_id = sanitize_text_field( $monday_id );
-        if ( empty( $monday_id ) || ! isset( $map[ $monday_id ] ) ) continue;
-        foreach ( (array) $user_ids as $uid ) {
-            $uid = absint( $uid );
-            if ( $uid ) {
-                update_user_meta( $uid, '_wham_monday_client_id', $monday_id );
-            }
-        }
-    }
-
-    echo '<div class="notice notice-success is-dismissible"><p>Client mapping and user access saved.</p></div>';
-}
-
 // ── Load data ────────────────────────────────────────────────────────────────
 $client_map = \WHAM_Reports::get_client_map();
 
@@ -73,6 +29,10 @@ $picker_users_json = wp_json_encode( array_values( array_map( function( $u ) {
 }, $picker_users ) ) );
 ?>
 <div class="wrap wham-admin wham-mapping-page">
+    <?php if ( isset( $_GET['updated'] ) ) : ?>
+        <div class="notice notice-success is-dismissible"><p>Client mapping and user access saved.</p></div>
+    <?php endif; ?>
+
     <div class="wham-mapping-header">
         <div>
             <h1>Client Mapping</h1>
@@ -83,7 +43,8 @@ $picker_users_json = wp_json_encode( array_values( array_map( function( $u ) {
         </div>
     </div>
 
-    <form method="post" id="wham-mapping-form">
+    <form method="post" id="wham-mapping-form" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+        <input type="hidden" name="action" value="wham_save_mapping" />
         <?php wp_nonce_field( 'wham_save_mapping' ); ?>
 
         <div class="wham-mapping-card">
@@ -212,24 +173,13 @@ $picker_users_json = wp_json_encode( array_values( array_map( function( $u ) {
         }
     }
 
-    $reference = [
-        '9141194308'  => [ 'Mira Mar Sarasota',    'Professional', 'miramarsarasota.com',           'sc-domain:miramarsarasota.com' ],
-        '9162419003'  => [ 'St. Pete Dermatology',  'Basic',        'stpetederm.com',                '' ],
-        '9141299484'  => [ 'Altera Wellness',       'Basic',        'alterawellness.com',            'sc-domain:alterawellness.com' ],
-        '9714942359'  => [ 'Peregrine Construction', 'Basic',       'peregrineconstructiongroup.com', 'https://peregrineconstructiongroup.com/' ],
-        '9545788260'  => [ 'Windstar Homes',        'Professional', 'windstarhomes.com',             'https://windstarhomes.com/' ],
-        '9955710484'  => [ 'Flood Guard USA',       'Basic',        'floodguardusa.com',             'sc-domain:floodguardusa.com' ],
-        '9141367401'  => [ 'Your Tampa Expert',     'Basic',        'yourtampaexpert.com',           '' ],
-        '9141264648'  => [ 'Seren Hospitality',     'Basic',        'serenhospitality.com',          'https://serenabythesea.com/' ],
-        '9260077438'  => [ '3rd & 3rd Apartments',  'Basic',        '3rdand3rdapartments.com',       'https://3rdand3rdapartments.com/' ],
-        '10083094386' => [ 'Spatial HQ',            'Basic',        'spatial-hq.com',                'sc-domain:spatial-hq.com' ],
-        '10979594433' => [ 'Backstreets Capital',   'Basic',        'backstreetscapital.com',        '' ],
-    ];
+    $monday_source      = new \WHAM_Reports\Monday_Source();
+    $reference_clients  = $monday_source->get_active_clients();
     ?>
 
     <div class="wham-mapping-card wham-ref-card">
         <div class="wham-mapping-card-header">
-            <h2>Monday.com Reference Data</h2>
+            <h2>Monday.com Active Client Suggestions</h2>
             <span class="wham-ref-hint">Click <strong>+</strong> to add a client to the mapping above. Auto-matched MainWP and GA4 IDs are filled in.</span>
         </div>
 
@@ -247,30 +197,32 @@ $picker_users_json = wp_json_encode( array_values( array_map( function( $u ) {
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ( $reference as $mid => $ref ) :
-                    $domain      = strtolower( preg_replace( '/^www\./', '', $ref[2] ) );
+                <?php foreach ( $reference_clients as $reference ) :
+                    $mid         = $reference['id'] ?? '';
+                    $domain      = $reference['domain'] ?? '';
                     $ga4_id      = $ga4_by_domain[ $domain ] ?? '';
                     $mainwp_id   = $mainwp_by_domain[ $domain ] ?? '';
-                    $gsc_label   = $ref[3] ?: '—';
+                    $gsc_value   = $domain ? 'sc-domain:' . $domain : '';
+                    $gsc_label   = $gsc_value ?: '—';
                     $in_map      = isset( $client_map[ $mid ] );
                 ?>
                 <tr<?php echo $in_map ? ' class="wham-ref-mapped"' : ''; ?>>
                     <td>
                         <button type="button" class="wham-add-ref"
                             data-mid="<?php echo esc_attr( $mid ); ?>"
-                            data-name="<?php echo esc_attr( $ref[0] ); ?>"
-                            data-tier="<?php echo esc_attr( strtolower( $ref[1] ) ); ?>"
-                            data-url="<?php echo esc_attr( $ref[2] ); ?>"
+                            data-name="<?php echo esc_attr( $reference['name'] ?? '' ); ?>"
+                            data-tier="<?php echo esc_attr( $reference['tier'] ?? 'basic' ); ?>"
+                            data-url="<?php echo esc_attr( $reference['url'] ?? '' ); ?>"
                             data-mainwp="<?php echo esc_attr( $mainwp_id ); ?>"
-                            data-gsc="<?php echo esc_attr( $ref[3] ); ?>"
+                            data-gsc="<?php echo esc_attr( $gsc_value ); ?>"
                             data-ga4="<?php echo esc_attr( $ga4_id ); ?>"
                             title="<?php echo $in_map ? 'Already mapped' : 'Add to mapping'; ?>"
                         ><?php echo $in_map ? '&#10003;' : '+'; ?></button>
                     </td>
                     <td class="wham-ref-id"><?php echo esc_html( $mid ); ?></td>
-                    <td class="wham-ref-name"><?php echo esc_html( $ref[0] ); ?></td>
-                    <td><span class="wham-tier-badge wham-tier-<?php echo esc_attr( strtolower( $ref[1] ) ); ?>"><?php echo esc_html( $ref[1] ); ?></span></td>
-                    <td class="wham-ref-url"><?php echo esc_html( $ref[2] ); ?></td>
+                    <td class="wham-ref-name"><?php echo esc_html( $reference['name'] ?? '' ); ?></td>
+                    <td><span class="wham-tier-badge wham-tier-<?php echo esc_attr( $reference['tier'] ?? 'basic' ); ?>"><?php echo esc_html( $reference['tier_label'] ?? ucfirst( $reference['tier'] ?? 'basic' ) ); ?></span></td>
+                    <td class="wham-ref-url"><?php echo esc_html( $reference['url'] ?? '' ); ?></td>
                     <td><?php echo $mainwp_id ? esc_html( $mainwp_id ) : '<span class="wham-na">—</span>'; ?></td>
                     <td class="wham-ref-gsc"><?php echo esc_html( $gsc_label ); ?></td>
                     <td><?php echo $ga4_id ? esc_html( $ga4_id ) : '<span class="wham-na">—</span>'; ?></td>
@@ -279,6 +231,9 @@ $picker_users_json = wp_json_encode( array_values( array_map( function( $u ) {
             </tbody>
         </table>
 
+        <?php if ( empty( $reference_clients ) ) : ?>
+            <p class="wham-ref-note">No active Monday.com clients were returned. Confirm the API token and board access in Settings.</p>
+        <?php endif; ?>
         <?php if ( empty( $ga4_properties ) ) : ?>
             <p class="wham-ref-note">
                 GA4 property lookup returned no results. Ensure the Analytics Admin API is enabled and properties are shared with <code><?php
@@ -834,6 +789,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.wham-add-ref').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var data = this.dataset;
+            var suggestionUrl = data.url || '';
+            if (suggestionUrl && suggestionUrl.indexOf('http') !== 0) {
+                suggestionUrl = 'https://' + suggestionUrl.replace(/^https?:\/\//, '');
+            }
 
             // Check for duplicate.
             var existing = mappingBody.querySelectorAll('input[name^="monday_id"]');
@@ -852,7 +811,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 mid: data.mid,
                 name: data.name,
                 tier: data.tier,
-                url: data.url ? ('https://' + data.url.replace(/^https?:\/\//, '')) : '',
+                url: suggestionUrl,
                 mainwp: data.mainwp || '',
                 gsc: data.gsc,
                 ga4: data.ga4 || ''

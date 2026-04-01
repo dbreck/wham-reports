@@ -11,7 +11,12 @@ $maintenance  = $report_data['maintenance'] ?? [];
 $search       = $report_data['search'] ?? [];
 $analytics    = $report_data['analytics'] ?? [];
 $period_label = $report_data['period_label'] ?? '';
+$period_start = $report_data['period_start'] ?? '';
+$period_end   = $report_data['period_end'] ?? '';
 $tier         = $report_data['tier'] ?? 'basic';
+$comparison   = $report_data['comparison'] ?? [];
+$search_source    = $search['source'] ?? '';
+$analytics_source = $analytics['source'] ?? '';
 
 $back_url = remove_query_arg( 'report' );
 
@@ -33,10 +38,65 @@ $render_change = function( $current, $previous, $format = 'number', $invert = fa
 	return '<span class="wham-change ' . $class . '">' . $prefix . abs( $pct ) . '%</span>';
 };
 
-// PDF URL (check Swiss first for backward compat with v3.0.0 reports, then default).
-if ( ! $pdf_url ) {
-	$pdf_url = get_post_meta( $report_post->ID, '_wham_pdf_url_swiss', true );
+$format_date_range = function( $start, $end, $fallback = '' ) {
+	if ( empty( $start ) || empty( $end ) ) {
+		return $fallback;
+	}
+
+	$start_date = DateTimeImmutable::createFromFormat( '!Y-m-d', $start );
+	$end_date   = DateTimeImmutable::createFromFormat( '!Y-m-d', $end );
+
+	if ( ! $start_date || ! $end_date ) {
+		return $fallback;
+	}
+
+	if ( $start_date->format( 'Ymd' ) === $end_date->format( 'Ymd' ) ) {
+		return $start_date->format( 'M j, Y' );
+	}
+
+	if ( $start_date->format( 'Y' ) === $end_date->format( 'Y' ) ) {
+		if ( $start_date->format( 'n' ) === $end_date->format( 'n' ) ) {
+			return $start_date->format( 'M' ) . ' ' . $start_date->format( 'j' ) . '-' . $end_date->format( 'j, Y' );
+		}
+
+		return $start_date->format( 'M j' ) . ' - ' . $end_date->format( 'M j, Y' );
+	}
+
+	return $start_date->format( 'M j, Y' ) . ' - ' . $end_date->format( 'M j, Y' );
+};
+
+$render_subsection_heading = function( $title, $meta = '' ) {
+	$html = '<div class="wham-subsection-head">';
+	$html .= '<h4>' . esc_html( $title ) . '</h4>';
+
+	if ( $meta ) {
+		$html .= '<p class="wham-subsection-meta">' . esc_html( $meta ) . '</p>';
+	}
+
+	$html .= '</div>';
+
+	return $html;
+};
+
+$period_range      = $format_date_range( $period_start, $period_end, $period_label );
+$comparison_range  = $format_date_range( $comparison['start_date'] ?? '', $comparison['end_date'] ?? '' );
+$section_time_meta = $period_range ? 'Report window: ' . $period_range : '';
+
+if ( $section_time_meta && $comparison_range ) {
+	$section_time_meta .= ' | Compared with ' . $comparison_range;
 }
+
+$unavailable_sections = [];
+
+if ( wham_tier_has( $tier, 'gsc_aggregate' ) && in_array( $search_source, array( 'not_configured', 'skipped' ), true ) ) {
+	$unavailable_sections[] = 'Search Performance: ' . ( ! empty( $search['error'] ) ? $search['error'] : 'Search Console data was unavailable for this report.' );
+}
+
+if ( wham_tier_has( $tier, 'ga4_core' ) && in_array( $analytics_source, array( 'not_configured', 'skipped', 'error' ), true ) ) {
+	$unavailable_sections[] = 'Website Traffic: ' . ( ! empty( $analytics['error'] ) ? $analytics['error'] : 'Analytics data was unavailable for this report.' );
+}
+
+$plugins_needing = $maintenance['plugins_needing_update'] ?? [];
 ?>
 <div class="wham-dashboard wham-detail">
 
@@ -61,6 +121,15 @@ if ( ! $pdf_url ) {
 			<?php endif; ?>
 		</div>
 	</div>
+
+	<?php if ( ! empty( $unavailable_sections ) ) : ?>
+	<div class="wham-dash-notice wham-dash-notice-report">
+		<strong>Data availability</strong>
+		<?php foreach ( $unavailable_sections as $availability_note ) : ?>
+			<p><?php echo esc_html( $availability_note ); ?></p>
+		<?php endforeach; ?>
+	</div>
+	<?php endif; ?>
 
 	<!-- Maintenance -->
 	<div class="wham-dash-section">
@@ -90,23 +159,17 @@ if ( ! $pdf_url ) {
 			</div>
 		</div>
 
-		<?php if ( wham_tier_has( $tier, 'maintenance_detail' ) && ! empty( $maintenance['plugin_details'] ) ) : ?>
-		<h4>Plugin Updates</h4>
+		<?php if ( wham_tier_has( $tier, 'maintenance_detail' ) && ! empty( $plugins_needing ) ) : ?>
+		<?php echo $render_subsection_heading( 'Plugin Updates', 'Pending versions captured in the latest maintenance snapshot.' ); ?>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
-				<thead><tr><th>Plugin</th><th>Version</th><th>Status</th></tr></thead>
+				<thead><tr><th>Plugin</th><th>Installed</th><th>Available</th></tr></thead>
 				<tbody>
-				<?php foreach ( $maintenance['plugin_details'] as $plugin ) : ?>
+				<?php foreach ( $plugins_needing as $plugin ) : ?>
 					<tr>
 						<td><?php echo esc_html( $plugin['name'] ?? '' ); ?></td>
-						<td class="wham-td-mono"><?php echo esc_html( $plugin['version'] ?? '' ); ?></td>
-						<td>
-							<?php if ( ! empty( $plugin['update_available'] ) ) : ?>
-								<span class="wham-status-badge wham-status-warning">Update Available</span>
-							<?php else : ?>
-								<span class="wham-status-badge wham-status-good">Up to Date</span>
-							<?php endif; ?>
-						</td>
+						<td class="wham-td-mono"><?php echo esc_html( $plugin['current_version'] ?? '--' ); ?></td>
+						<td class="wham-td-mono"><?php echo esc_html( $plugin['new_version'] ?? '--' ); ?></td>
 					</tr>
 				<?php endforeach; ?>
 				</tbody>
@@ -118,7 +181,6 @@ if ( ! $pdf_url ) {
 
 	<!-- Search Performance -->
 	<?php
-	$search_source = $search['source'] ?? '';
 	if ( wham_tier_has( $tier, 'gsc_aggregate' ) && $search_source !== 'skipped' && $search_source !== 'not_configured' ) :
 		$search_comp = $search['comparison'] ?? [];
 		$prev_search = [
@@ -130,7 +192,12 @@ if ( ! $pdf_url ) {
 	?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<h3>Search Performance</h3>
+			<div class="wham-section-heading">
+				<h3>Search Performance</h3>
+				<?php if ( $section_time_meta ) : ?>
+					<p class="wham-section-meta"><?php echo esc_html( $section_time_meta ); ?></p>
+				<?php endif; ?>
+			</div>
 		</div>
 		<?php if ( ! empty( $search['error'] ) ) : ?>
 			<p class="wham-dash-muted"><?php echo esc_html( $search['error'] ); ?></p>
@@ -159,14 +226,14 @@ if ( ! $pdf_url ) {
 		</div>
 
 		<?php if ( wham_tier_has( $tier, 'gsc_trend' ) && ! empty( $search['daily_labels'] ) ) : ?>
-		<h4>Search Trend</h4>
+		<?php echo $render_subsection_heading( 'Search Trend', $period_range ? 'Daily clicks and impressions for ' . $period_range : '' ); ?>
 		<div class="wham-chart-wrap">
 			<canvas id="wham-gsc-trend" height="280"></canvas>
 		</div>
 		<?php endif; ?>
 
 		<?php if ( wham_tier_has( $tier, 'gsc_top_queries' ) && ! empty( $search['top_queries'] ) ) : ?>
-		<h4>Search Queries</h4>
+		<?php echo $render_subsection_heading( 'Search Queries', $period_range ? 'Top queries during ' . $period_range : '' ); ?>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
 				<thead><tr><th>Query</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Position</th></tr></thead>
@@ -186,7 +253,7 @@ if ( ! $pdf_url ) {
 		<?php endif; ?>
 
 		<?php if ( wham_tier_has( $tier, 'gsc_top_pages' ) && ! empty( $search['top_pages'] ) ) : ?>
-		<h4>Top Pages</h4>
+		<?php echo $render_subsection_heading( 'Top Pages', $period_range ? 'Best-performing pages during ' . $period_range : '' ); ?>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
 				<thead><tr><th>Page</th><th>Clicks</th><th>Impressions</th></tr></thead>
@@ -208,7 +275,6 @@ if ( ! $pdf_url ) {
 
 	<!-- Website Traffic -->
 	<?php
-	$analytics_source = $analytics['source'] ?? '';
 	if ( wham_tier_has( $tier, 'ga4_core' ) && $analytics_source !== 'skipped' && $analytics_source !== 'error' && $analytics_source !== 'not_configured' ) :
 		$prev_analytics = [
 			'sessions'    => $analytics['previous_sessions'] ?? null,
@@ -219,7 +285,12 @@ if ( ! $pdf_url ) {
 	?>
 	<div class="wham-dash-section">
 		<div class="wham-section-header">
-			<h3>Website Traffic</h3>
+			<div class="wham-section-heading">
+				<h3>Website Traffic</h3>
+				<?php if ( $section_time_meta ) : ?>
+					<p class="wham-section-meta"><?php echo esc_html( $section_time_meta ); ?></p>
+				<?php endif; ?>
+			</div>
 		</div>
 		<div class="wham-metric-grid wham-metric-grid-4">
 			<div class="wham-metric">
@@ -245,7 +316,7 @@ if ( ! $pdf_url ) {
 		</div>
 
 		<?php if ( wham_tier_has( $tier, 'ga4_sources' ) && ! empty( $analytics['traffic_sources'] ) ) : ?>
-		<h4>Traffic Sources</h4>
+		<?php echo $render_subsection_heading( 'Traffic Sources', $period_range ? 'Channel mix for ' . $period_range : '' ); ?>
 		<div class="wham-chart-wrap">
 			<canvas id="wham-ga4-sources" height="280"></canvas>
 		</div>
@@ -266,7 +337,7 @@ if ( ! $pdf_url ) {
 		<?php endif; ?>
 
 		<?php if ( wham_tier_has( $tier, 'ga4_trend' ) && ! empty( $analytics['daily_labels'] ) ) : ?>
-		<h4>Sessions &amp; Users Trend</h4>
+		<?php echo $render_subsection_heading( 'Sessions & Users Trend', $period_range ? 'Daily totals for ' . $period_range : '' ); ?>
 		<div class="wham-chart-wrap">
 			<canvas id="wham-ga4-trend" height="280"></canvas>
 		</div>
@@ -275,7 +346,7 @@ if ( ! $pdf_url ) {
 		<?php
 		$landing_pages = $analytics['top_pages'] ?? $analytics['top_landing_pages'] ?? [];
 		if ( wham_tier_has( $tier, 'ga4_landing_pages' ) && ! empty( $landing_pages ) ) : ?>
-		<h4>Landing Pages</h4>
+		<?php echo $render_subsection_heading( 'Landing Pages', $period_range ? 'Top entry pages during ' . $period_range : '' ); ?>
 		<div class="wham-table-wrap">
 			<table class="wham-dash-table">
 				<thead><tr><th>Page</th><th>Sessions</th><th>Users</th></tr></thead>

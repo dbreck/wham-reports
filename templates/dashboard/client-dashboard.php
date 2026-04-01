@@ -96,10 +96,7 @@ $base_url = get_permalink();
 			$period_month = $period ? date( 'F', strtotime( $period . '-01' ) ) : '';
 			$period_year  = $period ? date( 'Y', strtotime( $period . '-01' ) ) : '';
 			$tier         = get_post_meta( $rpt->ID, '_wham_tier', true );
-			$pdf_url      = get_post_meta( $rpt->ID, '_wham_pdf_url', true );
-			if ( ! $pdf_url ) {
-				$pdf_url = get_post_meta( $rpt->ID, '_wham_pdf_url_swiss', true );
-			}
+			$pdf_url      = \WHAM_Reports::get_report_download_url( $rpt->ID );
 			$rpt_client   = get_post_meta( $rpt->ID, '_wham_client_name', true );
 			$generated    = get_the_date( 'M j, Y', $rpt );
 			$detail_url   = add_query_arg( 'report', $rpt->ID, $base_url );
