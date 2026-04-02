@@ -37,16 +37,31 @@ rsync -a \
   --exclude='wham-reports.zip' \
   . "$BUILD_DIR/wham-reports/"
 
-# Copy only the vendor packages we actually need (DomPDF + its deps).
-# The Google API uses direct HTTP calls, not the apiclient-services library.
+# Copy the runtime vendor packages Composer's autoloader expects.
+# We still avoid the enormous google/apiclient-services/src tree because
+# runtime uses direct HTTP calls, but its lightweight autoload.php file
+# must exist or vendor/autoload.php fatals on production.
 mkdir -p "$BUILD_DIR/wham-reports/vendor"
 cp vendor/autoload.php "$BUILD_DIR/wham-reports/vendor/"
 rsync -a vendor/composer/ "$BUILD_DIR/wham-reports/vendor/composer/"
 rsync -a vendor/dompdf/ "$BUILD_DIR/wham-reports/vendor/dompdf/"
 rsync -a vendor/dompdf/php-font-lib/ "$BUILD_DIR/wham-reports/vendor/dompdf/php-font-lib/"
 rsync -a vendor/dompdf/php-svg-lib/ "$BUILD_DIR/wham-reports/vendor/dompdf/php-svg-lib/"
+rsync -a vendor/firebase/ "$BUILD_DIR/wham-reports/vendor/firebase/"
+rsync -a vendor/google/apiclient/ "$BUILD_DIR/wham-reports/vendor/google/apiclient/"
+rsync -a vendor/google/auth/ "$BUILD_DIR/wham-reports/vendor/google/auth/"
+mkdir -p "$BUILD_DIR/wham-reports/vendor/google/apiclient-services"
+cp vendor/google/apiclient-services/autoload.php "$BUILD_DIR/wham-reports/vendor/google/apiclient-services/"
+rsync -a vendor/guzzlehttp/ "$BUILD_DIR/wham-reports/vendor/guzzlehttp/"
 rsync -a vendor/masterminds/ "$BUILD_DIR/wham-reports/vendor/masterminds/"
+rsync -a vendor/monolog/ "$BUILD_DIR/wham-reports/vendor/monolog/"
+rsync -a vendor/paragonie/ "$BUILD_DIR/wham-reports/vendor/paragonie/"
+rsync -a vendor/phpseclib/ "$BUILD_DIR/wham-reports/vendor/phpseclib/"
+rsync -a vendor/psr/ "$BUILD_DIR/wham-reports/vendor/psr/"
+rsync -a vendor/ralouphie/ "$BUILD_DIR/wham-reports/vendor/ralouphie/"
 rsync -a vendor/sabberworm/ "$BUILD_DIR/wham-reports/vendor/sabberworm/"
+rsync -a vendor/symfony/ "$BUILD_DIR/wham-reports/vendor/symfony/"
+rsync -a vendor/thecodingmachine/ "$BUILD_DIR/wham-reports/vendor/thecodingmachine/"
 
 # Build the zip.
 cd "$BUILD_DIR"
