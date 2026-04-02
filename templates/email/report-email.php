@@ -14,7 +14,6 @@ defined( 'ABSPATH' ) || exit;
 $dashboard_url       = $dashboard_url ?? \WHAM_Reports::get_report_dashboard_url( intval( $report_id ) );
 $has_pdf_attachment  = null !== \WHAM_Reports::get_report_pdf_path( intval( $report_id ) );
 $logo_url            = \WHAM_Reports::get_brand_logo_url();
-$first_name          = explode( ' ', trim( (string) $client_name ) )[0] ?? $client_name;
 $period_meta         = $report_data['period'] ?? [];
 $period_start        = $period_meta['start_date'] ?? '';
 $period_end          = $period_meta['end_date'] ?? '';
@@ -183,9 +182,6 @@ if ( $window_meta && $comparison_window ) {
 	<!-- ============================================================ -->
 	<tr>
 		<td style="padding:28px 32px 20px 32px;">
-			<p style="font-size:15px;font-weight:700;color:#0f172a;margin:0 0 8px 0;">
-				Hi <?php echo esc_html( $first_name ); ?>,
-			</p>
 			<p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 10px 0;">
 				Here's your <?php echo esc_html( $period_label ); ?> website report.
 			</p>
