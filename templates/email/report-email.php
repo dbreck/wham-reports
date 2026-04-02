@@ -11,7 +11,6 @@
  */
 defined( 'ABSPATH' ) || exit;
 
-$dashboard_url       = $dashboard_url ?? \WHAM_Reports::get_report_dashboard_url( intval( $report_id ) );
 $has_pdf_attachment  = null !== \WHAM_Reports::get_report_pdf_path( intval( $report_id ) );
 $logo_url            = \WHAM_Reports::get_brand_logo_url();
 $period_meta         = $report_data['period'] ?? [];
@@ -523,18 +522,13 @@ if ( $window_meta && $comparison_window ) {
 	<!-- ============================================================ -->
 	<!-- CTA: VIEW REPORT ONLINE                                       -->
 	<!-- ============================================================ -->
-	<?php if ( $dashboard_url || $has_pdf_attachment ) : ?>
+	<?php if ( $has_pdf_attachment ) : ?>
 	<tr>
 		<td style="padding:16px 32px;">
 			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f6f8fb;border:1px solid #dbe4f0;padding:0;">
 				<tr>
 					<td align="center" style="padding:24px 20px;">
-						<?php if ( $dashboard_url ) : ?>
-							<a href="<?php echo esc_url( $dashboard_url ); ?>" style="display:inline-block;padding:12px 32px;background-color:#111827;border:1px solid #243149;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.5px;">View Full Report Online</a>
-						<?php endif; ?>
-						<?php if ( $has_pdf_attachment ) : ?>
 						<p style="font-size:12px;color:#64748b;margin:12px 0 0 0;">PDF report is attached to this email.</p>
-						<?php endif; ?>
 					</td>
 				</tr>
 			</table>

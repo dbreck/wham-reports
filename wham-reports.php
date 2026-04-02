@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WHAM Reports
  * Description: Automated monthly reporting for WHAM (Web Hosting And Maintenance) clients. Collects data from MainWP, Google Search Console, GA4, and Monday.com to generate PDF reports and a client dashboard.
- * Version: 3.4.0
+ * Version: 3.4.1
  * Author: Clear ph Design
  * Text Domain: wham-reports
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WHAM_REPORTS_VERSION', '3.4.0' );
+define( 'WHAM_REPORTS_VERSION', '3.4.1' );
 define( 'WHAM_REPORTS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WHAM_REPORTS_URL', plugin_dir_url( __FILE__ ) );
 define( 'WHAM_REPORTS_MONDAY_BOARD_ID', '9141194124' );
@@ -514,6 +514,9 @@ final class WHAM_Reports {
         add_action( 'admin_menu', [ $this, 'admin_menu' ] );
         add_action( 'admin_init', [ $this, 'register_settings' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'admin_assets' ] );
+        add_action( 'template_redirect', [ $this, 'block_public_report_requests' ] );
+        add_action( 'send_headers', [ $this, 'send_report_robots_header' ] );
+        add_filter( 'wp_robots', [ $this, 'filter_report_robots' ] );
 
         // GitHub updater.
         new \WHAM_Reports\GitHub_Updater();
@@ -636,14 +639,79 @@ final class WHAM_Reports {
                 'edit_item'     => 'Edit Report',
                 'view_item'     => 'View Report',
             ],
-            'public'       => false,
-            'show_ui'      => true,
-            'show_in_menu' => false, // We show under our own menu.
-            'show_in_rest' => true,
-            'supports'     => [ 'title', 'custom-fields' ],
+            'public'             => false,
+            'publicly_queryable' => false,
+            'exclude_from_search'=> true,
+            'has_archive'        => false,
+            'rewrite'            => false,
+            'query_var'          => false,
+            'show_ui'            => true,
+            'show_in_menu'       => false, // We show under our own menu.
+            'show_in_rest'       => false,
+            'supports'           => [ 'title', 'custom-fields' ],
             'capability_type' => 'post',
             'map_meta_cap' => true,
         ]);
+    }
+
+    private function is_report_dashboard_request(): bool {
+        $dashboard_page_id = self::get_dashboard_page_id();
+        return $dashboard_page_id > 0 && is_page( $dashboard_page_id );
+    }
+
+    public function filter_report_robots( array $robots ): array {
+        if ( $this->is_report_dashboard_request() || is_singular( 'wham_report' ) || is_post_type_archive( 'wham_report' ) ) {
+            $robots['noindex']  = true;
+            $robots['nofollow'] = true;
+            $robots['noarchive'] = true;
+        }
+
+        return $robots;
+    }
+
+    public function send_report_robots_header(): void {
+        if ( $this->is_report_dashboard_request() || is_singular( 'wham_report' ) || is_post_type_archive( 'wham_report' ) ) {
+            header( 'X-Robots-Tag: noindex, nofollow, noarchive', true );
+        }
+    }
+
+    public function block_public_report_requests(): void {
+        if ( is_admin() || wp_doing_ajax() ) {
+            return;
+        }
+
+        if ( $this->is_report_dashboard_request() && ! is_user_logged_in() ) {
+            $home_url      = home_url( '/' );
+            $dashboard_url = self::get_dashboard_page_url();
+
+            if ( '' !== $dashboard_url && untrailingslashit( $dashboard_url ) !== untrailingslashit( $home_url ) ) {
+                wp_safe_redirect( $home_url );
+                exit;
+            }
+        }
+
+        if ( ! is_singular( 'wham_report' ) && ! is_post_type_archive( 'wham_report' ) ) {
+            return;
+        }
+
+        global $wp_query;
+
+        if ( $wp_query instanceof \WP_Query ) {
+            $wp_query->set_404();
+        }
+
+        status_header( 404 );
+        nocache_headers();
+        header( 'X-Robots-Tag: noindex, nofollow, noarchive', true );
+
+        $template = get_404_template();
+        if ( $template ) {
+            include $template;
+        } else {
+            wp_die( 'Report not found.', '404', [ 'response' => 404 ] );
+        }
+
+        exit;
     }
 
     /* ------------------------------------------------------------------
