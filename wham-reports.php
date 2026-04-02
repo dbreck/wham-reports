@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WHAM Reports
  * Description: Automated monthly reporting for WHAM (Web Hosting And Maintenance) clients. Collects data from MainWP, Google Search Console, GA4, and Monday.com to generate PDF reports and a client dashboard.
- * Version: 3.3.1
+ * Version: 3.3.2
  * Author: Clear ph Design
  * Text Domain: wham-reports
  * Requires at least: 6.0
@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WHAM_REPORTS_VERSION', '3.3.1' );
+define( 'WHAM_REPORTS_VERSION', '3.3.2' );
 define( 'WHAM_REPORTS_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WHAM_REPORTS_URL', plugin_dir_url( __FILE__ ) );
 define( 'WHAM_REPORTS_MONDAY_BOARD_ID', '9141194124' );
@@ -103,6 +103,60 @@ final class WHAM_Reports {
 
         $url = get_permalink( $page_id );
         return $url ? $url : '';
+    }
+
+    public static function get_brand_logo_url(): string {
+        $plugin_logo_path = WHAM_REPORTS_PATH . 'assets/img/wham-logo-dark-email.png';
+        if ( file_exists( $plugin_logo_path ) ) {
+            return WHAM_REPORTS_URL . 'assets/img/wham-logo-dark-email.png';
+        }
+
+        $upload_dir = wp_get_upload_dir();
+        $base_dir   = trailingslashit( (string) ( $upload_dir['basedir'] ?? '' ) );
+        $base_url   = trailingslashit( (string) ( $upload_dir['baseurl'] ?? '' ) );
+
+        if ( '' === $base_dir || '' === $base_url ) {
+            return '';
+        }
+
+        $candidates = [
+            '2025/07/wham-logo-dark.png',
+            '2025/07/wham-logo-dark.webp',
+            '2025/07/wham-logo-dark.jpg',
+            '2025/07/wham-logo-dark.jpeg',
+            '2025/07/wham-logo-dark.svg',
+        ];
+
+        foreach ( $candidates as $relative_path ) {
+            $file_path = $base_dir . $relative_path;
+            if ( file_exists( $file_path ) ) {
+                return $base_url . $relative_path;
+            }
+        }
+
+        return '';
+    }
+
+    public static function get_report_chart_urls( array $report_data ): array {
+        $chart_urls = [];
+        $charts     = $report_data['charts'] ?? [];
+
+        if ( ! is_array( $charts ) ) {
+            return $chart_urls;
+        }
+
+        foreach ( $charts as $key => $path ) {
+            if ( ! is_string( $path ) || '' === $path ) {
+                continue;
+            }
+
+            $chart_url = \WHAM_Reports\Chart_Generator::get_chart_url( $path );
+            if ( '' !== $chart_url ) {
+                $chart_urls[ $key ] = $chart_url;
+            }
+        }
+
+        return $chart_urls;
     }
 
     public static function get_report_dashboard_url( int $report_id ): string {
@@ -1230,7 +1284,7 @@ final class WHAM_Reports {
         $dashboard_url = self::get_report_dashboard_url( $report_id );
 
         $report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
-        $chart_urls  = [];
+        $chart_urls  = self::get_report_chart_urls( is_array( $report_data ) ? $report_data : [] );
 
         // Render email body.
         ob_start();

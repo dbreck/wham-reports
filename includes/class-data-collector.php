@@ -322,8 +322,8 @@ class Data_Collector {
 
         // Load report data for inline email content.
         $report_data = json_decode( get_post_meta( $report_id, '_wham_report_data', true ), true );
-
-        $chart_urls = [];
+        $report_data = is_array( $report_data ) ? $report_data : [];
+        $chart_urls  = \WHAM_Reports::get_report_chart_urls( $report_data );
 
         // Load email template.
         ob_start();

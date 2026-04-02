@@ -13,7 +13,14 @@ defined( 'ABSPATH' ) || exit;
 
 $dashboard_url       = $dashboard_url ?? \WHAM_Reports::get_report_dashboard_url( intval( $report_id ) );
 $has_pdf_attachment  = null !== \WHAM_Reports::get_report_pdf_path( intval( $report_id ) );
-$first_name    = explode( ' ', $client_name )[0] ?? $client_name;
+$logo_url            = \WHAM_Reports::get_brand_logo_url();
+$first_name          = explode( ' ', trim( (string) $client_name ) )[0] ?? $client_name;
+$period_meta         = $report_data['period'] ?? [];
+$period_start        = $period_meta['start_date'] ?? '';
+$period_end          = $period_meta['end_date'] ?? '';
+$comparison_start    = $period_meta['comparison_start_date'] ?? '';
+$comparison_end      = $period_meta['comparison_end_date'] ?? '';
+$tier_label          = ucfirst( (string) $tier ) . ' Plan';
 
 // Extract report sections.
 $maintenance = $report_data['maintenance'] ?? [];
@@ -82,6 +89,37 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 		return '<span style="font-size:12px;color:' . $color . ';font-weight:600;">' . $prefix . $change . '%</span>';
 	}
 }
+
+/**
+ * Format a YYYY-MM-DD range for email labels.
+ */
+if ( ! function_exists( 'wham_email_date_range' ) ) {
+	function wham_email_date_range( $start, $end ) {
+		if ( empty( $start ) || empty( $end ) ) {
+			return '';
+		}
+
+		$start_ts = strtotime( $start );
+		$end_ts   = strtotime( $end );
+		if ( ! $start_ts || ! $end_ts ) {
+			return '';
+		}
+
+		if ( gmdate( 'Y-m', $start_ts ) === gmdate( 'Y-m', $end_ts ) ) {
+			return gmdate( 'M j', $start_ts ) . '-' . gmdate( 'j, Y', $end_ts );
+		}
+
+		return gmdate( 'M j, Y', $start_ts ) . ' - ' . gmdate( 'M j, Y', $end_ts );
+	}
+}
+
+$report_window     = wham_email_date_range( $period_start, $period_end );
+$comparison_window = wham_email_date_range( $comparison_start, $comparison_end );
+$window_meta       = $report_window;
+
+if ( $window_meta && $comparison_window ) {
+	$window_meta .= ' | Compared with ' . $comparison_window;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -91,29 +129,33 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title>WHAM Report — <?php echo esc_html( $period_label ); ?></title>
 </head>
-<body style="margin:0;padding:0;background-color:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<body style="margin:0;padding:0;background-color:#eef2f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
 
 <!-- Wrapper -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f0f0f0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef2f7;">
 <tr><td align="center" style="padding:24px 16px;">
 
 <!-- Container 600px -->
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;max-width:600px;width:100%;">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;max-width:640px;width:100%;border:1px solid #dbe4f0;">
 
 	<!-- ============================================================ -->
 	<!-- HEADER                                                        -->
 	<!-- ============================================================ -->
 	<tr>
-		<td style="background-color:#0f172a;padding:24px 32px;">
+		<td style="background-color:#ffffff;padding:28px 32px 22px 32px;border-bottom:1px solid #dbe4f0;">
 			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 				<tr>
-					<td>
-						<span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:3px;">WHAM</span>
-						<br>
-						<span style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;">Web Hosting &amp; Maintenance</span>
+					<td style="vertical-align:middle;">
+						<?php if ( $logo_url ) : ?>
+							<img src="<?php echo esc_url( $logo_url ); ?>" alt="WHAM" width="176" style="display:block;width:176px;max-width:100%;height:auto;border:0;">
+						<?php else : ?>
+							<span style="font-size:26px;font-weight:800;color:#0f172a;letter-spacing:2px;">WHAM</span>
+							<br>
+							<span style="font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:#64748b;">Web Hosting &amp; Maintenance</span>
+						<?php endif; ?>
 					</td>
-					<td align="right" style="vertical-align:top;">
-						<span style="font-size:11px;color:#94a3b8;"><?php echo esc_html( $period_label ); ?></span>
+					<td align="right" style="vertical-align:middle;">
+						<span style="display:inline-block;padding:9px 14px;background-color:#0f172a;border:1px solid #243149;font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#f8fafc;"><?php echo esc_html( $period_label ); ?></span>
 					</td>
 				</tr>
 			</table>
@@ -122,8 +164,17 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 
 	<!-- Client name bar -->
 	<tr>
-		<td style="background-color:#1e293b;padding:12px 32px;">
-			<span style="font-size:15px;font-weight:700;color:#ffffff;"><?php echo esc_html( $client_name ); ?></span>
+		<td style="background-color:#111827;padding:18px 32px;border-top:4px solid #2563eb;">
+			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+				<tr>
+					<td style="vertical-align:middle;">
+						<span style="font-size:22px;font-weight:700;color:#ffffff;line-height:1.2;"><?php echo esc_html( $client_name ); ?></span>
+					</td>
+					<td align="right" style="vertical-align:middle;">
+						<span style="display:inline-block;padding:6px 10px;border:1px solid #8b5cf6;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#ede9fe;background-color:#1f1738;"><?php echo esc_html( $tier_label ); ?></span>
+					</td>
+				</tr>
+			</table>
 		</td>
 	</tr>
 
@@ -132,12 +183,17 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<!-- ============================================================ -->
 	<tr>
 		<td style="padding:28px 32px 20px 32px;">
-			<p style="font-size:15px;font-weight:700;color:#0f172a;margin:0 0 6px 0;">
+			<p style="font-size:15px;font-weight:700;color:#0f172a;margin:0 0 8px 0;">
 				Hi <?php echo esc_html( $first_name ); ?>,
 			</p>
-			<p style="font-size:14px;color:#475569;line-height:1.6;margin:0;">
+			<p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 10px 0;">
 				Here's your <?php echo esc_html( $period_label ); ?> website report.
 			</p>
+			<?php if ( $window_meta ) : ?>
+			<p style="font-size:12px;color:#64748b;line-height:1.5;margin:0;">
+				Report window: <?php echo esc_html( $window_meta ); ?>
+			</p>
+			<?php endif; ?>
 		</td>
 	</tr>
 
@@ -148,8 +204,8 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 		<td style="padding:0 32px;">
 			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 				<tr>
-					<td style="background-color:#f5f5f5;padding:10px 16px;border-bottom:2px solid #0f172a;">
-						<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#0f172a;">Maintenance</span>
+					<td style="background-color:#f6f8fb;padding:12px 16px;border-left:4px solid #2563eb;border-bottom:1px solid #dbe4f0;">
+						<span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#0f172a;">Maintenance</span>
 					</td>
 				</tr>
 			</table>
@@ -219,8 +275,8 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 		<td style="padding:12px 32px 0 32px;">
 			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 				<tr>
-					<td style="background-color:#f5f5f5;padding:10px 16px;border-bottom:2px solid #0f172a;">
-						<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#0f172a;">Search Performance</span>
+					<td style="background-color:#f6f8fb;padding:12px 16px;border-left:4px solid #10b981;border-bottom:1px solid #dbe4f0;">
+						<span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#0f172a;">Search Performance</span>
 					</td>
 				</tr>
 			</table>
@@ -285,8 +341,15 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<!-- GSC Trend Chart -->
 	<?php if ( wham_tier_has( $tier, 'gsc_trend' ) && ! empty( $chart_urls['gsc_trend'] ) ) : ?>
 	<tr>
+		<td style="padding:12px 32px 0 32px;">
+			<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:#64748b;margin:0;">
+				Daily Search Trend<?php echo $report_window ? ' | ' . esc_html( $report_window ) : ''; ?>
+			</p>
+		</td>
+	</tr>
+	<tr>
 		<td align="center" style="padding:16px 32px;">
-			<img src="<?php echo esc_url( $chart_urls['gsc_trend'] ); ?>" alt="Search trend chart" width="536" style="display:block;max-width:100%;height:auto;border:0;">
+			<img src="<?php echo esc_url( $chart_urls['gsc_trend'] ); ?>" alt="Search trend chart" width="536" style="display:block;max-width:100%;height:auto;border:1px solid #e2e8f0;">
 		</td>
 	</tr>
 	<?php endif; ?>
@@ -349,8 +412,8 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 		<td style="padding:12px 32px 0 32px;">
 			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 				<tr>
-					<td style="background-color:#f5f5f5;padding:10px 16px;border-bottom:2px solid #0f172a;">
-						<span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#0f172a;">Website Traffic</span>
+					<td style="background-color:#f6f8fb;padding:12px 16px;border-left:4px solid #8b5cf6;border-bottom:1px solid #dbe4f0;">
+						<span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#0f172a;">Website Traffic</span>
 					</td>
 				</tr>
 			</table>
@@ -409,8 +472,15 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<!-- Traffic Sources Chart -->
 	<?php if ( wham_tier_has( $tier, 'ga4_sources' ) && ! empty( $chart_urls['ga4_sources'] ) ) : ?>
 	<tr>
+		<td style="padding:12px 32px 0 32px;">
+			<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:#64748b;margin:0;">
+				Traffic Sources<?php echo $report_window ? ' | ' . esc_html( $report_window ) : ''; ?>
+			</p>
+		</td>
+	</tr>
+	<tr>
 		<td align="center" style="padding:16px 32px;">
-			<img src="<?php echo esc_url( $chart_urls['ga4_sources'] ); ?>" alt="Traffic sources chart" width="536" style="display:block;max-width:100%;height:auto;border:0;">
+			<img src="<?php echo esc_url( $chart_urls['ga4_sources'] ); ?>" alt="Traffic sources chart" width="536" style="display:block;max-width:100%;height:auto;border:1px solid #e2e8f0;">
 		</td>
 	</tr>
 	<?php endif; ?>
@@ -418,8 +488,15 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<!-- Sessions Trend Chart -->
 	<?php if ( wham_tier_has( $tier, 'ga4_trend' ) && ! empty( $chart_urls['ga4_trend'] ) ) : ?>
 	<tr>
+		<td style="padding:0 32px;">
+			<p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;color:#64748b;margin:0;">
+				Sessions &amp; Users Trend<?php echo $report_window ? ' | ' . esc_html( $report_window ) : ''; ?>
+			</p>
+		</td>
+	</tr>
+	<tr>
 		<td align="center" style="padding:0 32px 16px 32px;">
-			<img src="<?php echo esc_url( $chart_urls['ga4_trend'] ); ?>" alt="Sessions trend chart" width="536" style="display:block;max-width:100%;height:auto;border:0;">
+			<img src="<?php echo esc_url( $chart_urls['ga4_trend'] ); ?>" alt="Sessions trend chart" width="536" style="display:block;max-width:100%;height:auto;border:1px solid #e2e8f0;">
 		</td>
 	</tr>
 	<?php endif; ?>
@@ -453,14 +530,14 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<?php if ( $dashboard_url || $has_pdf_attachment ) : ?>
 	<tr>
 		<td style="padding:16px 32px;">
-			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;padding:0;">
+			<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f6f8fb;border:1px solid #dbe4f0;padding:0;">
 				<tr>
 					<td align="center" style="padding:24px 20px;">
 						<?php if ( $dashboard_url ) : ?>
-							<a href="<?php echo esc_url( $dashboard_url ); ?>" style="display:inline-block;padding:12px 32px;background-color:#0f172a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:0.5px;">View Full Report Online</a>
+							<a href="<?php echo esc_url( $dashboard_url ); ?>" style="display:inline-block;padding:12px 32px;background-color:#111827;border:1px solid #243149;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;letter-spacing:0.5px;">View Full Report Online</a>
 						<?php endif; ?>
 						<?php if ( $has_pdf_attachment ) : ?>
-						<p style="font-size:12px;color:#94a3b8;margin:12px 0 0 0;">PDF report is attached to this email.</p>
+						<p style="font-size:12px;color:#64748b;margin:12px 0 0 0;">PDF report is attached to this email.</p>
 						<?php endif; ?>
 					</td>
 				</tr>
@@ -473,12 +550,12 @@ if ( ! function_exists( 'wham_email_change' ) ) {
 	<!-- FOOTER                                                        -->
 	<!-- ============================================================ -->
 	<tr>
-		<td style="padding:20px 32px;border-top:1px solid #e2e8f0;">
-			<p style="font-size:12px;color:#94a3b8;margin:0 0 4px 0;">
+		<td style="padding:22px 32px;border-top:1px solid #dbe4f0;background-color:#f9fbfd;">
+			<p style="font-size:12px;color:#64748b;margin:0 0 4px 0;">
 				Questions about your report? Just reply to this email.
 			</p>
-			<p style="font-size:11px;color:#cbd5e1;margin:0;">
-				WHAM -- Web Hosting &amp; Maintenance by Clear pH
+			<p style="font-size:11px;color:#94a3b8;margin:0;">
+				WHAM | Web Hosting &amp; Maintenance by Clear pH
 			</p>
 		</td>
 	</tr>

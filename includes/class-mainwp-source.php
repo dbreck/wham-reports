@@ -58,6 +58,23 @@ class MainWP_Source {
             return $this->empty_result( 'Site not found in MainWP (ID: ' . $site_id . ')' );
         }
 
+        // site_info is the canonical source for WordPress core version.
+        // MainWP's sync.version can reflect the child plugin version instead.
+        $site_info      = [];
+        $site_info_json = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT value FROM {$table_opts} WHERE wpid = %d AND name = 'site_info'",
+                (int) $site_id
+            )
+        );
+
+        if ( $site_info_json ) {
+            $decoded_site_info = json_decode( $site_info_json, true );
+            if ( is_array( $decoded_site_info ) ) {
+                $site_info = $decoded_site_info;
+            }
+        }
+
         // PHP version from options table.
         $php_version = $wpdb->get_var(
             $wpdb->prepare(
@@ -66,19 +83,12 @@ class MainWP_Source {
             )
         );
 
-        // Fallback: try site_info JSON which also contains phpversion.
+        // Fallback: site_info JSON also contains phpversion.
         if ( empty( $php_version ) ) {
-            $site_info_json = $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT value FROM {$table_opts} WHERE wpid = %d AND name = 'site_info'",
-                    (int) $site_id
-                )
-            );
-            if ( $site_info_json ) {
-                $site_info   = json_decode( $site_info_json, true );
-                $php_version = $site_info['phpversion'] ?? '';
-            }
+            $php_version = $site_info['phpversion'] ?? '';
         }
+
+        $wp_version = trim( (string) ( $site_info['wpversion'] ?? ( $site['wp_version'] ?? '' ) ) );
 
         // MainWP stores plugin/theme data as JSON (not serialized PHP).
         $plugins_raw    = json_decode( $site['plugins'] ?? '[]', true );
@@ -119,7 +129,7 @@ class MainWP_Source {
 
         $result = [
             'source'                 => 'mainwp_db',
-            'wp_version'             => $site['wp_version'] ?? 'Unknown',
+            'wp_version'             => '' !== $wp_version ? $wp_version : 'Unknown',
             'wp_update_available'    => ! empty( $wp_upgrades ),
             'wp_update_version'      => is_array( $wp_upgrades ) ? ( $wp_upgrades['current'] ?? null ) : null,
             'plugins_total'          => count( $active_plugins ),
